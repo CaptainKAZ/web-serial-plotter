@@ -1,0 +1,2871 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Performance Web Plotter (TimeChart)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], }, }, }, }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-array@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-format@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-time@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-time-format@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-scale@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-selection@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-axis@3"></script>
+    <script src="https://huww98.github.io/TimeChart/dist/timechart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Styles from origin - no changes needed */
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            background-color: #f3f4f6;
+            position: relative;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .control-panel {
+            width: 350px;
+            min-width: 250px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            overflow-y: auto;
+        }
+
+        .display-area-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+            overflow: hidden;
+        }
+
+        .gutter {
+            background-color: #e5e7eb;
+            background-repeat: no-repeat;
+            background-position: 50%;
+            z-index: 20;
+        }
+
+        .gutter.gutter-horizontal {
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeAAPRUQBx75IwAAAAAElFTkSuQmCC');
+            cursor: col-resize;
+            height: 100%;
+        }
+
+        .gutter.gutter-vertical {
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
+            cursor: row-resize;
+            width: 100%;
+        }
+
+        .display-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            gap: 0;
+        }
+
+        #bottomRow {
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            gap: 0;
+            flex-shrink: 0;
+        }
+
+        .module-container {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            padding: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 40px;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .module-header h3 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            flex-shrink: 0;
+            margin-right: auto;
+        }
+
+        .module-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        /* Removed follow-duration-control styles, hide the element later if desired */
+        /* .follow-duration-control { display: flex; align-items: center; gap: 0.25rem; } */
+        /* .follow-duration-control label { font-size: 0.875rem; color: #374151; margin-bottom: 0; white-space: nowrap; } */
+        /* .follow-duration-control input[type="number"] { width: 5rem; padding: 0.25rem 0.5rem; font-size: 0.875rem; } */
+        .header-fullscreen-button {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            color: #6b7280;
+            cursor: pointer;
+            line-height: 0;
+            border-radius: 0.25rem;
+        }
+
+        .header-fullscreen-button:hover {
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .header-fullscreen-button svg {
+            width: 1rem;
+            height: 1rem;
+            stroke-width: 2.5;
+        }
+
+        /* Keep for initial render */
+        .header-fullscreen-button i {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Ensure i tag takes space */
+        .data-format-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .data-format-controls button {
+            padding: 0.125rem 0.5rem;
+            font-size: 0.75rem;
+            border: 1px solid transparent;
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .data-format-controls button.active {
+            background-color: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+
+        /* Removed plotFpsDisplay styles */
+        /* .fps-display { position: absolute; top: 0.5rem; left: 0.5rem; background-color: rgba(0, 0, 0, 0.5); color: white; font-size: 0.75rem; padding: 0.125rem 0.375rem; border-radius: 0.25rem; z-index: 10; } */
+        .plot-container {
+            overflow: hidden;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ensure plot container can grow */
+        .plot-container .plot-content {
+            flex-grow: 1;
+            min-height: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .plot-container #lineChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        .text-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .parsed-data-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .parsed-data-header span {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        #parsedDataDisplay {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            background-color: #f9fafb;
+            margin-bottom: 0.5rem;
+            min-height: 3rem;
+            align-items: center;
+            flex-shrink: 0;
+            overflow-y: auto;
+            max-height: 100px;
+        }
+
+        #parsedDataDisplay .channel-value {
+            background-color: #e5e7eb;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            white-space: nowrap;
+        }
+
+        #parsedDataDisplay .channel-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-right: 0.125rem;
+        }
+
+        .text-container textarea {
+            flex-grow: 1;
+            min-height: 50px;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            font-family: monospace;
+            resize: none;
+            background-color: #f9fafb;
+            width: 100%;
+        }
+
+        .quaternion-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quaternion-container #quaternionView {
+            flex-grow: 1;
+            min-height: 0;
+            background-color: #e5e7eb;
+            border-radius: 0.375rem;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .quaternion-container #quaternionView:active {
+            cursor: grabbing;
+        }
+
+        #quaternionErrorOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(229, 231, 235, 0.8);
+            color: #4b5563;
+            text-align: center;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            z-index: 5;
+            display: none;
+            pointer-events: none;
+        }
+
+        /* FPS display for Quaternion view - Keep this one */
+        #quatFpsDisplay {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            z-index: 10;
+        }
+
+        .display-area-container.fullscreen-active>.module-container:not(.module-fullscreen) {
+            display: none;
+        }
+
+        .display-area-container.fullscreen-active>.module-container.module-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            z-index: 50;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        /* Removed languageToggle styles */
+        /* #languageToggle { display: flex; gap: 0.25rem; } */
+        /* #languageToggle button { padding: 0.125rem 0.5rem; font-size: 0.75rem; min-width: 30px; border: 1px solid #d1d5db; background-color: white; color: #374151; } */
+        /* #languageToggle button.active { background-color: #3b82f6; color: white; border-color: #3b82f6; } */
+        button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select,
+        textarea {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            width: 100%;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .control-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .parser-status {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            color: #6b7280;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #111827;
+        }
+
+        /* Adjusted h3 styling slightly */
+        h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e5e7eb;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            height: 0.5rem;
+        }
+
+        .progress-bar {
+            background-color: #3b82f6;
+            height: 100%;
+            width: 0%;
+            transition: width 0.2s ease-out;
+        }
+
+        .toggle-switch {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        .toggle-switch input {
+            display: none;
+        }
+
+        .toggle-switch .slider {
+            width: 34px;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 10px;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        .toggle-switch .slider::before {
+            content: "";
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: white;
+            left: 2px;
+            top: 2px;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch input:checked+.slider {
+            background-color: #3b82f6;
+        }
+
+        .toggle-switch input:checked+.slider::before {
+            transform: translateX(14px);
+        }
+
+        .toggle-switch-label {
+            margin-left: 0.5rem;
+            font-size: 0.875rem;
+            color: #374151;
+        }
+
+        #workerStatusDisplay {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.25rem;
+            display: none;
+            /* Hidden by default */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="control-section">
+                <h3>数据源</h3> <select id="dataSourceSelect" class="mb-2">
+                    <option value="simulated">模拟数据</option>
+                    <option value="webserial">网页串口</option>
+                    <option value="tcp" disabled>TCP (不可用)</option>
+                    <option value="udp" disabled>UDP (不可用)</option>
+                </select>
+                <button id="startStopButton" class="w-full mb-2">开始采集</button>
+                <p id="statusMessage" class="text-xs text-gray-500 mt-1">状态：空闲</p>
+                <p id="workerStatusDisplay"></p>
+            </div>
+
+            <div id="simulatedControls" class="control-section">
+                <h4>模拟设置</h4>
+                <div>
+                    <label for="simNumChannels">通道数量:</label> <input type="number" id="simNumChannels" value="4" min="1"
+                        max="16" class="mb-2">
+                </div>
+                <div>
+                    <label for="simFrequency">频率 (Hz):</label> <input type="number" id="simFrequency" value="1000"
+                        min="1" max="2000" class="mb-2">
+                </div>
+                <div>
+                    <label for="simAmplitude">幅值:</label> <input type="number" id="simAmplitude" value="1" min="0.1"
+                        step="0.1" class="mb-2">
+                </div>
+            </div>
+
+            <div id="webSerialControls" class="control-section" style="display: none;">
+                <h4>网页串口设置</h4>
+                <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
+                <button id="connectSerialButton" class="w-full">连接串口</button>
+                <div id="serialOptions" class="mt-2">
+                    <label for="baudRateInput">波特率:</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates"
+                            value="115200" min="300" max="4000000" step="100">
+                        <datalist id="commonBaudRates">
+                            <option>9600</option>
+                            <option>19200</option>
+                            <option>38400</option>
+                            <option>57600</option>
+                            <option>115200</option>
+                            <option>230400</option>
+                            <option>460800</option>
+                            <option>921600</option>
+                        </datalist>
+                    </div>
+                    <label for="dataBitsSelect">数据位:</label> <select id="dataBitsSelect" class="mb-2">
+                        <option value="8" selected>8</option>
+                        <option value="7">7</option>
+                    </select>
+                    <label for="stopBitsSelect">停止位:</label> <select id="stopBitsSelect" class="mb-2">
+                        <option value="1" selected>1</option>
+                        <option value="2">2</option>
+                    </select>
+                    <label for="paritySelect">校验位:</label> <select id="paritySelect" class="mb-2">
+                        <option value="none" selected>无</option>
+                        <option value="even">偶校验</option>
+                        <option value="odd">奇校验</option>
+                    </select>
+                    <label for="flowControlSelect">流控制:</label> <select id="flowControlSelect" class="mb-2">
+                        <option value="none" selected>无</option>
+                        <option value="hardware">硬件</option>
+                    </select>
+                    <label for="serialParser">自定义解析器 (JS 函数体):</label> <textarea id="serialParser" rows="6"
+                        placeholder="输入 parseSerialData(rawDataString) 函数体..."></textarea> <button
+                        id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
+                    <p id="parserStatus" class="parser-status">状态：使用默认解析器。</p>
+                    <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
+                </div>
+            </div>
+
+            <div id="quaternionSettings" class="control-section">
+                <h4>四元数通道选择</h4>
+                <p class="text-xs text-gray-500 mb-2">从可用通道中选择 W, X, Y, Z 通道。</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <div> <label for="quatWChannel">W:</label> <select id="quatWChannel"></select> </div>
+                    <div> <label for="quatXChannel">X:</label> <select id="quatXChannel"></select> </div>
+                    <div> <label for="quatYChannel">Y:</label> <select id="quatYChannel"></select> </div>
+                    <div> <label for="quatZChannel">Z:</label> <select id="quatZChannel"></select> </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>数据采集与导出</h3>
+                <div>
+                    <label for="bufferDurationInput">最大缓冲点数:</label> <input type="number" id="bufferDurationInput"
+                        value="120000" min="1000" max="6000000" class="mb-2">
+                </div>
+                <label>缓冲使用情况:</label>
+                <div class="progress-bar-container mb-2">
+                    <div id="bufferUsageBar" class="progress-bar"></div>
+                </div>
+                <p id="bufferStatus" class="text-xs text-gray-500 mb-3">缓冲: 0 / 0 点</p>
+                <div class="flex flex-col gap-y-3 mt-1">
+                    <button id="downloadCsvButton" class="w-full">下载 CSV</button> <button id="clearDataButton"
+                        class="w-full bg-red-500 hover:bg-red-600">清除图表和缓冲</button>
+                </div>
+            </div>
+        </div>
+        <div id="displayAreaContainer" class="display-area-container">
+            <div id="displayArea" class="display-area">
+                <div id="plotModule" class="module-container plot-container">
+                    <div class="module-header">
+                        <h3>曲线显示 (WebGL)</h3> <span id="dataRateDisplay"
+                            class="text-sm font-normal text-gray-500 mr-4">速率: 0 Hz</span>
+                        <div class="module-controls">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="followToggle" checked>
+                                <span class="slider"></span>
+                                <span class="toggle-switch-label">跟随</span> </label>
+                            <button class="header-fullscreen-button" data-target="plotModule" title="全屏/退出">
+                                <i data-lucide="maximize"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="plot-content">
+                        <div id="lineChart"></div>
+                    </div>
+                </div>
+
+                <div id="bottomRow" class="split">
+                    <div id="textModule" class="module-container text-container">
+                        <div class="module-header">
+                            <h3>原始数据显示</h3>
+                            <div class="module-controls">
+                                <div class="data-format-controls">
+                                    <button id="rawStrBtn" class="active">STR</button> <button
+                                        id="rawHexBtn">HEX</button>
+                                </div>
+                                <button class="header-fullscreen-button" data-target="textModule" title="全屏/退出"> <i
+                                        data-lucide="maximize"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="parsedDataDisplay">
+                            <span class="text-gray-400 text-xs italic">等待数据...</span>
+                        </div>
+                        <textarea id="rawDataOutput" readonly></textarea>
+                    </div>
+
+                    <div id="quatModule" class="module-container quaternion-container">
+                        <div class="module-header">
+                            <h3>四元数姿态显示</h3>
+                            <div class="module-controls">
+                                <button class="header-fullscreen-button" data-target="quatModule" title="全屏/退出"> <i
+                                        data-lucide="maximize"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="quaternionView">
+                            <div id="quaternionErrorOverlay">确保选择了 4 个唯一的通道 (W, X, Y, Z) 并且数据源提供了足够的通道。</div>
+                        </div>
+                        <div id="quatFpsDisplay" class="fps-display">帧率: --</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script id="dataWorkerScript" type="text/worker">
+        // --- Worker Globals ---
+        // Keep batch interval from origin
+        const WORKER_BATCH_INTERVAL_MS = 10; // 100Hz batching
+        let workerBatchInterval = null;
+
+        let serialPort = null;
+        let serialReader = null;
+        let keepReadingSerial = false;
+        let serialAbortController = null;
+        // Default parser, can be overwritten by main thread message
+        let serialParserFunction = (rawDataString) => rawDataString.trim().split(/\s*,\s*|\s+/).map(Number).filter(n => !isNaN(n));
+
+        let currentDataSource = 'simulated';
+        let simConfig = { numChannels: 4, frequency: 1000, amplitude: 1 }; // Default frequency matches input
+        let serialConfig = {};
+
+        let currentRunStartTime = 0; // Worker's internal start time for simulation calculation
+        let lastBatchSendTime = 0;
+
+        // --- Worker Functions ---
+
+        // generateAndSendBatch (Keep origin implementation - generates points based on performance.now())
+        function generateAndSendBatch() {
+            const now = performance.now();
+            const timeSinceLastBatch = Math.max(1, now - lastBatchSendTime); // Avoid division by zero or negative time
+            // Calculate points based on target frequency and actual time elapsed since last batch
+            const pointsInBatch = Math.max(1, Math.round(simConfig.frequency * timeSinceLastBatch / 1000));
+
+            const batch = [];
+            // Calculate timestamp for each point within the batch interval
+            for (let p = 0; p < pointsInBatch; p++) {
+                // Interpolate timestamp more accurately
+                const pointTimestamp = lastBatchSendTime + (timeSinceLastBatch * (p + 1) / pointsInBatch);
+                // Calculate elapsed time specifically for this point relative to the worker's run start time
+                const pointElapsedMs = pointTimestamp - currentRunStartTime;
+                const values = [];
+                for (let i = 0; i < simConfig.numChannels; i++) {
+                    const phase = (i * Math.PI) / 4;
+                    const freqMultiplier = 1 + i * 0.5;
+                    const timeSec = pointElapsedMs / 1000.0; // Use point's specific elapsed time
+                    // Generate simulated value
+                    let value = simConfig.amplitude * Math.sin(2 * Math.PI * freqMultiplier * timeSec + phase) + (Math.random() - 0.5) * 0.1 * simConfig.amplitude;
+                    // Ensure value is a finite number, default to 0 otherwise
+                    values.push(typeof value === 'number' && isFinite(value) ? value : 0);
+                }
+                // Add point with its calculated timestamp and values to the batch
+                batch.push({ timestamp: pointTimestamp, values: values });
+            }
+
+            if (batch.length > 0) {
+                // Post the batch of data points back to the main thread
+                self.postMessage({ type: 'dataBatch', payload: batch });
+            }
+            // Update the time of the last batch sending
+            lastBatchSendTime = now;
+        }
+
+
+        // startSimulation (Keep origin implementation)
+        function startSimulation() {
+            stopSimulation(); // Ensure any previous simulation is stopped
+            currentRunStartTime = performance.now(); // Record the start time for this run
+            lastBatchSendTime = currentRunStartTime; // Initialize last send time
+            console.log(`Worker: Starting simulation batch generation at ${simConfig.frequency} Hz (Batch interval: ${WORKER_BATCH_INTERVAL_MS}ms)`);
+            // Start interval timer to generate and send batches periodically
+            workerBatchInterval = setInterval(generateAndSendBatch, WORKER_BATCH_INTERVAL_MS);
+        }
+
+        function concatUint8Arrays(a, b) {
+            if (!a || a.byteLength === 0) return b;
+            if (!b || b.byteLength === 0) return a;
+            const result = new Uint8Array(a.byteLength + b.byteLength);
+            result.set(a, 0);
+            result.set(b, a.byteLength);
+            return result;
+        }
+
+        async function startReadingSerial() {
+            // --- 1. 前置检查和状态设置 ---
+            if (!serialPort || !serialPort.readable) {
+                self.postMessage({ type: 'error', payload: 'Worker: 串口不可用或不可读。' });
+                return;
+            }
+            if (serialReader) { // 如果已有读取器，先尝试清理
+                console.warn("Worker: 读取器已存在，尝试清理...");
+                await stopReadingSerial(); // 假设 stopReadingSerial 会处理 cleanup
+            }
+
+            keepReadingSerial = true; // 控制读取循环的标志
+            serialAbortController = new AbortController(); // 用于取消操作（虽然不直接用于read，但可用于cancel）
+            let lineBuffer = new Uint8Array(0); // **使用 Uint8Array 作为缓冲区**
+
+            // --- 2. 获取原始字节流读取器 ---
+            try {
+                // **直接从 serialPort.readable 获取读取器**
+                serialReader = serialPort.readable.getReader();
+                console.log("Worker: 已获取原始串口读取器。");
+                self.postMessage({ type: 'status', payload: 'Worker: 启动串口读取循环。' });
+            } catch (error) {
+                self.postMessage({ type: 'error', payload: `Worker: 获取读取器时出错: ${error.message}` });
+                await stopReadingSerial(); // 出错时清理
+                return;
+            }
+
+            // --- 3. 主读取与处理循环 ---
+            try {
+                const dataPointsBatch = []; // 用于批量发送数据的数组
+                const SERIAL_BATCH_TIME_MS = 10; // 批量发送时间间隔
+                let lastSerialSendTime = performance.now();
+                const MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK = 80; // 80字节规则常量
+
+                // --- 主读取循环 ---
+                while (keepReadingSerial) {
+                    // --- 读取原始数据块 (value 将是 Uint8Array) ---
+                    const { value, done } = await serialReader.read().catch(err => {
+                        if (err.name !== 'AbortError') {
+                            console.error("Worker: 读取错误:", err);
+                            self.postMessage({ type: 'error', payload: `Worker: 读取错误: ${err.message}` });
+                        }
+                        return { value: undefined, done: true }; // 将错误视为流结束
+                    });
+
+                    const now = performance.now(); // 获取当前时间戳
+
+                    // --- 检查流结束或外部停止信号 ---
+                    if (done) { console.log("Worker: 串口流报告完成。"); keepReadingSerial = false; break; }
+                    if (!keepReadingSerial) { console.log("Worker: keepReadingSerial 变为 false，退出循环。"); break; }
+
+                    // --- 处理接收到的 Uint8Array 数据 ---
+                    if (value && value.byteLength > 0) {
+                        // **拼接 Uint8Array 缓冲区**
+                        lineBuffer = concatUint8Arrays(lineBuffer, value);
+
+                        let processedSomething = true; // 内循环处理标志
+                        // --- 内部处理循环：持续处理缓冲区，直到没有新进展 ---
+                        while (processedSomething && lineBuffer.byteLength > 0 && keepReadingSerial) {
+                            processedSomething = false; // 重置标志
+
+                            // --- 步骤 1: 尝试解析协议帧 ---
+                            const parseResult = serialParserFunction(lineBuffer); // 传递 Uint8Array
+                            if (parseResult && parseResult.values !== null) {
+                                // 提取原始帧字节
+                                const rawFrameBytes = lineBuffer.slice(0, parseResult.frameByteLength);
+                                // 添加到批处理，存储原始字节
+                                dataPointsBatch.push({
+                                    timestamp: now,
+                                    values: parseResult.values,
+                                    rawLineBytes: rawFrameBytes // **存储 Uint8Array**
+                                });
+                                // 更新缓冲区，移除已处理部分
+                                lineBuffer = lineBuffer.slice(parseResult.frameByteLength);
+                                processedSomething = true;
+                                continue; // 立刻尝试下一次解析
+                            }
+
+                            // --- 步骤 2: 检查 80 字节强制换行规则 ---
+                            if (lineBuffer.byteLength > MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK) {
+                                const earlyNewlineIndex = lineBuffer.slice(0, MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK).indexOf(0x0A);
+                                if (earlyNewlineIndex === -1) { // 前80字节无换行符，执行强制换行
+                                    console.warn(`Worker: 在 ${MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK} 字节处强制原始行换行。`);
+                                    const rawSegmentBytes = lineBuffer.slice(0, MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK);
+                                    // 添加原始字节段到批处理
+                                    dataPointsBatch.push({
+                                        timestamp: now,
+                                        values: [], // 无解析值
+                                        rawLineBytes: rawSegmentBytes // **存储 Uint8Array**
+                                    });
+                                    // 更新缓冲区
+                                    lineBuffer = lineBuffer.slice(MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK);
+                                    processedSomething = true;
+                                    continue;
+                                }
+                                // else: 让步骤3处理即将到来的换行符
+                            }
+
+                            // --- 步骤 3: 检查换行符 (0x0A) ---
+                            const newlineIndex = lineBuffer.indexOf(0x0A);
+                            if (newlineIndex !== -1) {
+                                const rawSegmentBytes = lineBuffer.slice(0, newlineIndex); // 换行符前的数据
+                                let validatedValues = [];
+                                // 添加到批处理，存储原始字节
+                                dataPointsBatch.push({
+                                    timestamp: now,
+                                    values: validatedValues,
+                                    rawLineBytes: rawSegmentBytes // **存储 Uint8Array**
+                                });
+                                // 更新缓冲区，移除段落和换行符
+                                lineBuffer = lineBuffer.slice(newlineIndex + 1);
+                                processedSomething = true;
+                                continue;
+                            }
+
+                            // 如果没有任何进展，退出内部循环
+                            if (!processedSomething) { break; }
+                        } // --- 结束内部处理循环 ---
+                    } // --- 结束数据处理 (if value) ---
+
+                    // --- 批量发送数据 ---
+                    if (dataPointsBatch.length > 0 && (now - lastSerialSendTime > SERIAL_BATCH_TIME_MS)) {
+                        self.postMessage({ type: 'dataBatch', payload: [...dataPointsBatch] }); // 发送副本
+                        dataPointsBatch.length = 0; // 清空批处理数组
+                        lastSerialSendTime = now;
+                    }
+                } // --- 结束主读取循环 (while keepReadingSerial) ---
+
+                // --- 发送循环结束后剩余的批处理数据 ---
+                if (dataPointsBatch.length > 0) {
+                    self.postMessage({ type: 'dataBatch', payload: [...dataPointsBatch] });
+                }
+
+            } catch (error) {
+                // --- 处理外部循环的错误 ---
+                if (error.name !== 'AbortError') {
+                    console.error("Worker: 外部读取循环错误:", error);
+                    self.postMessage({ type: 'error', payload: `Worker: 外部读取循环错误: ${error.message}` });
+                } else {
+                    console.log("Worker: 串口读取已成功中止。"); // 预期的停止情况
+                }
+            } finally {
+                // --- 4. 清理工作 ---
+                console.log("Worker: 正在退出串口读取循环的 finally 块。");
+                keepReadingSerial = false; // 确保标志位为 false
+                if (serialReader) {
+                    console.log("Worker: 正在释放读取器锁...");
+                    try {
+                        // 尝试取消读取器（可能触发 AbortError）
+                        await serialReader.cancel().catch(() => { });
+                        serialReader.releaseLock(); // 释放流上的锁
+                        console.log("Worker: 读取器锁已释放。");
+                    } catch (e) { console.error("Worker: 释放读取器锁时出错:", e); }
+                }
+                serialReader = null; // 清除读取器引用
+                // **移除 readableStreamClosed 相关代码**
+                self.postMessage({ type: 'status', payload: 'Worker: 串口读取循环已完成。' }); // 通知主线程
+            }
+        }
+
+        // stopSimulation (Keep origin implementation)
+        function stopSimulation() {
+            if (workerBatchInterval) {
+                clearInterval(workerBatchInterval); // Stop the interval timer
+                workerBatchInterval = null;
+                console.warn("Worker: Simulation batch interval STOPPED.");
+                currentRunStartTime = 0; // Reset start time
+            }
+        }
+
+        // stopReadingSerial (Keep origin implementation)
+        async function stopReadingSerial() {
+            console.log("Worker: stopReadingSerial called.");
+            const wasReading = keepReadingSerial;
+            keepReadingSerial = false; // Signal loop to stop FIRST
+
+            // Abort the ongoing read operation if controller exists
+            if (serialAbortController) {
+                console.log("Worker: Aborting controller...");
+                serialAbortController.abort(); // Trigger the AbortError
+                console.log("Worker: Controller aborted.");
+                serialAbortController = null;
+            } else if (wasReading) {
+                // This case might happen if stop is called rapidly before controller is fully set up
+                console.log("Worker: No abort controller to abort, but was reading.");
+            }
+
+            console.warn("Worker: keepReadingSerial set to false. Loop should exit.");
+
+            // Reader cleanup is handled in the finally block of startReadingSerial
+
+            // Release the port reference held by the worker
+            if (serialPort) {
+                console.log("Worker: Releasing serial port reference in stopReadingSerial.");
+                // serialPort = null; // Don't nullify here, port might need closing by main thread if transferred back? Let main thread handle nullifying after closePort message if needed. Or handle it based on closePort message. Let's assume the port is unusable after transfer or stop, so nullifying is okay.
+                serialPort = null;
+                self.postMessage({ type: 'status', payload: 'Worker: Serial port reference released.' });
+            } else if (wasReading) {
+                console.log("Worker: No serial port reference to release, but was reading.");
+            }
+            console.warn("WORKER SERIAL STOPPED");
+        }
+        // --- Worker Message Handling ---
+        self.onmessage = async (event) => {
+            // Keep origin implementation - handles start/stop/config updates
+            const { type, payload } = event.data;
+            switch (type) {
+                case 'start':
+                    console.log("Worker: Received start command for source:", payload.source);
+                    currentDataSource = payload.source;
+                    if (currentDataSource === 'simulated') {
+                        simConfig = payload.config;
+                        startSimulation(); // Starts batch interval
+                    } else if (currentDataSource === 'webserial') {
+                        // Ensure any previous serial operation is fully stopped before starting new one
+                        await stopReadingSerial();
+                        serialPort = payload.port; // Assume port is transferred
+                        serialConfig = payload.config;
+                        // Apply custom parser if provided
+                        if (payload.parserCode) {
+                            try {
+                                const newParser = new Function('rawDataString', payload.parserCode);
+                                newParser("1,2"); // Test basic execution
+                                serialParserFunction = newParser;
+                                self.postMessage({ type: 'status', payload: 'Worker: Custom parser applied.' });
+                            } catch (error) {
+                                // Send error back if parser code is invalid
+                                self.postMessage({ type: 'error', payload: `Worker: Invalid parser code: ${error.message}` });
+                                // Optional: Don't start reading if parser is essential and invalid?
+                                return; // Stop processing this message
+                            }
+                        } else {
+                            // Reset to default parser if no code provided
+                            serialParserFunction = (rawDataString) => rawDataString.trim().split(/\s*,\s*|\s+/).map(Number).filter(n => !isNaN(n));
+                        }
+                        startReadingSerial(); // Start the async read loop
+                    }
+                    break;
+                case 'stop':
+                    console.log("Worker: Received stop command.");
+                    if (currentDataSource === 'simulated') {
+                        stopSimulation(); // Stops batch interval
+                    } else if (currentDataSource === 'webserial') {
+                        await stopReadingSerial(); // Stops async read loop and cleans up
+                    }
+                    break;
+                case 'updateSimConfig':
+                    console.log("Worker: Updating sim config.");
+                    simConfig = payload;
+                    // If simulation is running, restart it with new config
+                    if (workerBatchInterval) {
+                        startSimulation(); // Restart interval with new parameters
+                    }
+                    break;
+                case 'updateParser':
+                    console.log("Worker: Updating parser.");
+                    try {
+                        // Create and test the new parser function from the provided code string
+                        const newParser = new Function('rawDataString', payload.code);
+                        newParser("1,2"); // Basic test execution
+                        serialParserFunction = newParser; // Update the active parser
+                        self.postMessage({ type: 'status', payload: 'Worker: Custom parser updated.' });
+                    } catch (error) {
+                        // Report error if the new parser code is invalid
+                        self.postMessage({ type: 'error', payload: `Worker: Invalid parser code: ${error.message}` });
+                    }
+                    break;
+                case 'closePort':
+                    // Main thread is asking worker to stop using the port (likely before main thread closes it)
+                    console.log("Worker: Received closePort command.");
+                    await stopReadingSerial(); // Ensure reading stops and worker releases port reference
+                    break;
+                default:
+                    console.warn("Worker received unknown message type:", type);
+            }
+        };
+
+        // Notify main thread that the worker script has loaded and is ready
+        self.postMessage({ type: 'status', payload: 'Worker ready.' });
+        console.log("Worker script loaded and ready.");
+
+    </script>
+    <script> // Start of Main Application JavaScript
+        // --- Constants ---
+        const ESTIMATION_UPDATE_INTERVAL_MS = 1000;
+        const MAIN_QUEUE_PROCESS_INTERVAL_MS = 16.6667; // ~30Hz target main thread update rate
+        const MAX_RAW_TEXT_LINES_DISPLAY = 1000;
+        const MAX_RAW_LOG_BUFFER_LINES = 10000;
+        const DEFAULT_MAX_BUFFER_POINTS = 10000;
+        const seriesColors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5', '#c49c94'];
+        const ZOOM_FACTOR = 1.1; // Factor for wheel zoom
+
+        // --- Global State ---
+        let timeChartInstance = null;
+        // Establish a fixed base time near app start for TimeChart precision with large performance.now() timestamps
+        const performanceTimeToDateEpochOffset = Date.now() - performance.now();
+        const baseTimeForChart = performanceTimeToDateEpochOffset; // Let TimeChart handle large numbers internally, relative to its internal base? Or set this to performance.now() at init? Let's try 0 first.
+
+        // Buffers & Data Queue
+        let dataBuffer = [];
+        let rawLogBuffer = [];
+        let mainThreadDataQueue = [];
+
+        // Configuration
+        let maxBufferPoints = DEFAULT_MAX_BUFFER_POINTS; // Added: Max points limit
+        let currentDataRateHz = 0; // Added: To store current data rate
+        let estimatedBufferTimeRemainingSec = null; // Added: To store estimation result
+        let estimatedBufferTimeSec = null;
+        let bufferEstimateInterval = null; // Added: Interval timer handle
+        let currentDataSource = 'simulated';
+
+        // State Flags
+        let isCollecting = false;
+        let followData = true; // Controlled by toggle & auto-follow logic
+
+        // Worker & Communication
+        let dataWorker = null;
+        let latestWorkerTimestamp = 0;
+        let mainQueueProcessInterval = null;
+
+        // Data Source Specific
+        let currentRunStartTime = 0; // performance.now() when collection starts
+        let serialPort = null;
+        let serialParserFunction = (rawDataString) => rawDataString.trim().split(/\s*,\s*|\s+/).map(Number).filter(n => !isNaN(n));
+
+        // UI / Interaction State
+        let rawDisplayMode = 'dec';
+        let latestParsedValues = [];
+        let customInteractionPluginInstance = null; // Hold instance of our custom plugin
+
+        // Quaternion State (Unchanged)
+        let threeScene, threeCamera, threeRenderer, threeObject, threeAxesHelper, threeOrbitControls;
+        let quaternionChannelIndices = { w: null, x: null, y: null, z: null };
+        let lastValidQuaternion = new THREE.Quaternion();
+        let quatAnimationRequest = null;
+        let quatLastRenderTime = 0;
+        let quatFrameCount = 0, quatLastFpsCalcTime = performance.now(), quatActualFps = 0;
+
+        // Data Rate Calculation
+        let dataPointCounter = 0;
+        let lastRateCheckTime = performance.now();
+
+
+        // --- DOM Elements ---
+        // (Assume all elements from the original HTML are still needed unless explicitly removed)
+        const dataSourceSelect = document.getElementById('dataSourceSelect');
+        const startStopButton = document.getElementById('startStopButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const workerStatusDisplay = document.getElementById('workerStatusDisplay');
+        const simulatedControls = document.getElementById('simulatedControls');
+        const webSerialControls = document.getElementById('webSerialControls');
+        const simNumChannelsInput = document.getElementById('simNumChannels');
+        const simFrequencyInput = document.getElementById('simFrequency');
+        const simAmplitudeInput = document.getElementById('simAmplitude');
+        const connectSerialButton = document.getElementById('connectSerialButton');
+        const serialOptionsDiv = document.getElementById('serialOptions');
+        const baudRateSelect = document.getElementById('baudRateSelect');
+        const dataBitsSelect = document.getElementById('dataBitsSelect');
+        const stopBitsSelect = document.getElementById('stopBitsSelect');
+        const paritySelect = document.getElementById('paritySelect');
+        const flowControlSelect = document.getElementById('flowControlSelect');
+        const serialParserTextarea = document.getElementById('serialParser');
+        const updateParserButton = document.getElementById('updateParserButton');
+        const parserStatus = document.getElementById('parserStatus');
+        const quatWSelect = document.getElementById('quatWChannel');
+        const quatXSelect = document.getElementById('quatXChannel');
+        const quatYSelect = document.getElementById('quatYChannel');
+        const quatZSelect = document.getElementById('quatZChannel');
+        const bufferDurationInput = document.getElementById('bufferDurationInput');
+        const bufferUsageBar = document.getElementById('bufferUsageBar');
+        const bufferStatus = document.getElementById('bufferStatus');
+        const rawDataOutput = document.getElementById('rawDataOutput');
+        const rawStrBtn = document.getElementById('rawStrBtn');
+        const rawHexBtn = document.getElementById('rawHexBtn');
+        const parsedDataDisplay = document.getElementById('parsedDataDisplay');
+        const lineChartDiv = document.getElementById('lineChart');
+        const followToggle = document.getElementById('followToggle');
+        const quaternionViewDiv = document.getElementById('quaternionView');
+        const quatFpsDisplay = document.getElementById('quatFpsDisplay'); // Keep Quat FPS
+        const quaternionErrorOverlay = document.getElementById('quaternionErrorOverlay');
+        const downloadCsvButton = document.getElementById('downloadCsvButton');
+        const clearDataButton = document.getElementById('clearDataButton');
+        const dataRateDisplay = document.getElementById('dataRateDisplay');
+        const displayAreaContainer = document.getElementById('displayAreaContainer');
+        const fullscreenButtons = document.querySelectorAll('.header-fullscreen-button');
+        const plotModule = document.getElementById('plotModule');
+        const quatModule = document.getElementById('quatModule');
+        const textModule = document.getElementById('textModule'); // Needed for split.js
+        const bottomRow = document.getElementById('bottomRow'); // Needed for split.js
+
+        // --- Initialization ---
+        function initializeApp() {
+            console.log("初始化应用 (TimeChart - 自定义交互)..."); // Initializing application (TimeChart - Custom Interaction)...
+
+            maxBufferPoints = parseInt(bufferDurationInput.value) || DEFAULT_MAX_BUFFER_POINTS;
+            bufferDurationInput.value = maxBufferPoints;
+            followData = followToggle.checked;
+
+            updateControlVisibility();
+            serialParserTextarea.value = `// 默认实现 (逗号或空格分割):\nreturn rawDataString.trim().split(/\\s*,\\s*|\\s+/).map(Number).filter(n => !isNaN(n));`; // Default implementation...
+
+            // 初始化 Worker
+            try {
+                // ... (Worker initialization code remains the same) ...
+                const workerScriptElement = document.getElementById('dataWorkerScript');
+                if (!workerScriptElement) throw new Error("未找到 Worker 脚本元素!"); // Worker script element not found!
+                const workerCode = workerScriptElement.textContent;
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const workerUrl = URL.createObjectURL(blob);
+                dataWorker = new Worker(workerUrl);
+                URL.revokeObjectURL(workerUrl);
+                console.log("数据 Worker 创建成功。"); // Data worker created successfully.
+                setupWorkerListeners();
+            } catch (error) {
+                console.error("创建数据 Worker 失败:", error); // Failed to create data worker:
+                updateStatusMessage(`错误: 初始化 Worker 失败 - ${error.message}`); // Error: Failed to initialize Worker -
+                startStopButton.disabled = true;
+                connectSerialButton.disabled = true;
+            }
+
+            const initialChannels = parseInt(simNumChannelsInput.value) || 1;
+            initializeTimeChart(initialChannels); // Init TimeChart (will include custom interaction plugin)
+            initializeQuaternionView();        // Init Quaternion (Unchanged)
+            updateQuaternionSelectors(initialChannels); // Update Quat selectors (Unchanged)
+            setupEventListeners();             // Setup UI listeners (Modified)
+            updateButtonStates();              // Set initial button states (Modified)
+            updateBufferStatus();              // Initial buffer UI (Modified logic)
+            updateParsedDataDisplay();         // Initial parsed data UI (Modified text)
+            initializeSplitLayout();           // Init Split.js (Should be unchanged)
+            lucide.createIcons();              // Render icons (Unchanged)
+            setupResizeObserver();             // Setup resize handling (Modified target)
+            startBufferEstimationTimer(); // Added: Start the estimation timer
+            console.log("应用已初始化。"); // Application initialized.
+        }
+
+        // --- Worker Communication ---
+        function setupWorkerListeners() {
+            // (Same as previous version - handles messages from worker)
+            if (!dataWorker) return;
+            dataWorker.onmessage = (event) => {
+                const { type, payload } = event.data;
+                switch (type) {
+                    case 'dataBatch':
+                        if (Array.isArray(payload)) {
+                            for (const point of payload) {
+                                mainThreadDataQueue.push(point);
+                            }
+                        }
+                        break;
+                    case 'status':
+                        handleWorkerStatus(payload); // Handle status messages (Modified)
+                        break;
+                    case 'error':
+                        console.error("Worker Error:", payload);
+                        updateStatusMessage(`Worker Error: ${payload}`); // Display error
+                        workerStatusDisplay.textContent = `Worker Error: ${payload}`;
+                        workerStatusDisplay.style.display = 'block'; // Make sure visible
+                        if (isCollecting) { stopDataCollection(); } // Stop collection on worker error
+                        break;
+                    case 'warn':
+                        console.warn("Worker Warning:", payload);
+                        break;
+                    default:
+                        console.log("Main received unknown message from worker:", type, payload);
+                }
+            };
+            dataWorker.onerror = (error) => {
+                console.error("Unhandled Worker Error:", error);
+                updateStatusMessage(`Critical Worker Error: ${error.message}`);
+                workerStatusDisplay.textContent = `Critical Worker Error: ${error.message}`;
+                workerStatusDisplay.style.display = 'block'; // Make sure visible
+                if (isCollecting) { stopDataCollection(); } // Stop collection on critical error
+                startStopButton.disabled = true; // Disable controls on critical error
+                connectSerialButton.disabled = true;
+            };
+        }
+        function handleWorkerStatus(statusPayload) {
+            console.log("Worker Status:", statusPayload);
+            if (statusPayload === 'Worker ready.') {
+                workerStatusDisplay.style.display = 'none';
+                return;
+            }
+            if (statusPayload === 'Worker: Custom parser updated.' || statusPayload === 'Worker: Custom parser applied.') {
+                parserStatus.textContent = "Status: Worker parser updated.";
+                parserStatus.classList.add('text-green-600');
+                parserStatus.classList.remove('text-red-600');
+            } else if (statusPayload.startsWith('Worker: Invalid parser code:')) {
+                parserStatus.textContent = "Status: Worker parser update failed.";
+                parserStatus.classList.add('text-red-600');
+                parserStatus.classList.remove('text-green-600');
+            } else {
+                workerStatusDisplay.style.display = 'none'; // Keep hidden unless error
+            }
+        }
+
+
+        // --- Main Thread Queue Processing ---
+        // Modified to use absolute timestamps and handle trimming
+        function processMainThreadQueue() {
+            if (mainThreadDataQueue.length === 0 || !timeChartInstance) return;
+
+            const itemsToProcess = mainThreadDataQueue.splice(0, mainThreadDataQueue.length);
+            let lastItemForUI = null; // Separate tracking for UI updates
+            let pointsAddedToChart = 0;
+            let currentBatchMaxTimestamp = 0; // Track max timestamp in this batch
+
+            for (const item of itemsToProcess) {
+                if (!item || !Array.isArray(item.values) || typeof item.timestamp !== 'number') continue;
+
+                const validatedValues = item.values.map(v => (typeof v === 'number' && isFinite(v)) ? v : NaN);
+                const itemTimestamp = item.timestamp; // Absolute performance.now() timestamp from worker
+
+                latestWorkerTimestamp = itemTimestamp; // Track overall latest timestamp
+                lastItemForUI = { ...item, values: validatedValues, timestamp: itemTimestamp }; // For UI updates
+                if (itemTimestamp > currentBatchMaxTimestamp) currentBatchMaxTimestamp = itemTimestamp; // Find max timestamp in this batch
+
+                // 1. Add data points to TimeChart's internal arrays (using absolute timestamp)
+                if (timeChartInstance.options && timeChartInstance.options.series) {
+                    for (let i = 0; i < validatedValues.length; i++) {
+                        if (timeChartInstance.options.series[i]?.data) {
+                            const seriesData = timeChartInstance.options.series[i].data;
+                            // Ensure monotonicity (important!)
+                            if (seriesData.length === 0 || itemTimestamp >= seriesData[seriesData.length - 1].x) {
+                                seriesData.push({ x: itemTimestamp, y: validatedValues[i] });
+                                pointsAddedToChart++;
+                            } else {
+                                console.warn(`跳过乱序数据点 系列 ${i}: x=${itemTimestamp}`); // Skipping out-of-order data point
+                            }
+                        }
+                    }
+                }
+
+                // 2. Add to Raw Log Buffer (absolute timestamp)
+                addRawLogEntry(itemTimestamp, validatedValues, item.rawLine);
+
+                // 3. Add to CSV buffer (`dataBuffer`) (absolute timestamp)
+                const bufferEntry = { timestamp: itemTimestamp, values: validatedValues };
+                dataBuffer.push(bufferEntry);
+
+                // Update data rate counter
+                dataPointCounter++;
+            } // End processing items in batch
+
+            // --- UI Updates based on the *last* valid item ---
+            if (lastItemForUI) {
+                latestParsedValues = lastItemForUI.values;
+                updateParsedDataDisplay(); // Update parsed value display
+
+                // Update Quaternion View (Unchanged)
+                const { w, x, y, z } = quaternionChannelIndices;
+                // ... (Quaternion update logic remains the same) ...
+                if (w !== null && x !== null && y !== null && z !== null &&
+                    w < lastItemForUI.values.length && x < lastItemForUI.values.length && y < lastItemForUI.values.length && z < lastItemForUI.values.length) {
+                    updateQuaternionView(lastItemForUI.values[w], lastItemForUI.values[x], lastItemForUI.values[y], lastItemForUI.values[z]);
+                } else {
+                    const selected = Object.values(quaternionChannelIndices).filter(idx => idx !== null);
+                    if (selected.length > 0 && (selected.length !== 4 || new Set(selected).size !== 4)) {
+                        quaternionErrorOverlay.textContent = "Ensure 4 unique channels (W, X, Y, Z) are selected and the data source provides enough channels.";
+                        quaternionErrorOverlay.style.display = 'flex';
+                    } else {
+                        quaternionErrorOverlay.style.display = 'none';
+                    }
+                }
+            }
+
+            // --- Updates after processing the whole batch ---
+
+            // 4. Trim TimeChart's internal data arrays (based on absolute timestamps)
+            if (pointsAddedToChart > 0 && timeChartInstance?.options?.series?.length > 0) {
+                for (let i = 0; i < timeChartInstance.options.series.length; i++) {
+                    const seriesData = timeChartInstance.options.series[i]?.data; // [source: 348] similar line
+                    if (!seriesData) continue;
+
+                    const pointsToRemove = seriesData.length - maxBufferPoints; // Calculate excess based on new constant
+                    if (pointsToRemove > 0) {
+                        seriesData.splice(0, pointsToRemove); // Remove oldest points from the beginning
+                        // console.log(`Trimmed ${pointsToRemove} points from TimeChart series ${i}`);
+                    }
+                }
+                // Old duration-based trimming logic removed [source: 343-351]
+            }
+
+
+            // 5. Call TimeChart update if data was added
+            if (pointsAddedToChart > 0) {
+                // Don't manually set xRange if follow is handled by realTime option or custom plugin interaction
+                // If using realTime: true, it handles the update internally (potentially)
+                // If using custom plugin, the plugin calls update after interactions
+                // Only call update here for data addition if not following, or if realTime handles it.
+                if (!followData || timeChartInstance.options.realTime) {
+                    timeChartInstance.update();
+                }
+                // If implementing manual follow *here*, calculate range and then call update.
+            }
+
+            // 6. Update Raw Text Area UI (Unchanged)
+            updateRawTextAreaUI();
+
+            // 7. Trim the main Data Buffer (for CSV) (Unchanged)
+            trimDataBuffer();
+            // 8. Update Buffer Status UI (Will use updated logic)
+            updateBufferStatus();
+
+            // 9. Update Data Rate Display (Unchanged)
+            const now = performance.now();
+            const rateDelta = now - lastRateCheckTime;
+            if (rateDelta >= 1000) {
+                const rate = (dataPointCounter * 1000) / rateDelta;
+                updateDataRateDisplay(rate);
+                dataPointCounter = 0;
+                lastRateCheckTime = now;
+            }
+        }
+
+        // --- Data Handling Helpers ---
+
+        // addRawLogEntry (Keep origin implementation - formats log entries)
+        function addRawLogEntry(workerTimestampMs, values, rawLineBytes) {
+            // 将时间戳格式化为秒，保留3位小数
+            const displayTimeStr = (workerTimestampMs / 1000.0).toFixed(3);
+
+            let displayLine; // 用于存储最终要在日志中显示的行内容
+
+            // 优先级 1：处理传入的原始字节数据 rawLineBytes
+            if (rawLineBytes != null && rawLineBytes.byteLength > 0) {
+                // 如果 rawLineBytes 存在且不为空
+
+                if (rawDisplayMode === 'hex') {
+                    // --- 十六进制模式 ---
+                    // 遍历 Uint8Array 中的每个字节，并将其转换为十六进制表示
+                    const hexStrings = [];
+                    for (const byte of rawLineBytes) { // 直接迭代字节值 (0-255)
+                        const hexString = byte.toString(16).toUpperCase().padStart(2, '0'); // 转大写十六进制，补零至两位
+                        hexStrings.push(`0x${hexString}`); // 添加 "0x" 前缀
+                    }
+                    // 用空格连接所有十六进制值
+                    displayLine = hexStrings.join(' ');
+
+                } else {
+                    // --- ASCII/字符串模式 ---
+                    // 将 Uint8Array 中的每个字节尝试解码为 ASCII 字符。
+                    // 注意：String.fromCharCode 会将字节值 0-255 映射到对应的 UTF-16 码元。
+                    // 对于 0-127，这与 ASCII 完全一致。
+                    // 对于 128-255，这通常对应于 Latin-1 (ISO-8859-1) 字符。
+                    // 常见的不可打印控制字符（0-31, 127）也会被转换，除非进行特殊处理。
+                    let asciiChars = [];
+                    for (const byte of rawLineBytes) {
+                        // 可选：在此处过滤或替换不可打印的 ASCII 字符
+                        // 例如: if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) { asciiChars.push('.'); } else { asciiChars.push(String.fromCharCode(byte)); }
+                        asciiChars.push(String.fromCharCode(byte)); // 直接使用字节值对应的字符
+                    }
+                    // 将字符数组连接成最终的显示字符串
+                    displayLine = asciiChars.join('');
+                }
+            } else {
+                // 优先级 2：如果 rawLineBytes 为 null 或为空，则格式化 values 数组
+                // (沿用之前的逻辑)
+                displayLine = values.map(v => {
+                    if (v === null || v === undefined) return 'N/A'; // 处理 null/undefined
+                    if (isNaN(v)) return 'NaN'; // 处理 NaN
+                    // 假设数值类型应格式化为3位小数，其他类型转为字符串
+                    return typeof v === 'number' ? v.toFixed(3) : String(v);
+                }).join(', '); // 用逗号和空格连接
+            }
+
+            // 构建最终的日志条目字符串（时间戳 + : + 内容）
+            const logEntry = `${displayTimeStr}: ${displayLine}`;
+            // 将日志条目添加到缓冲区末尾
+            rawLogBuffer.push(logEntry);
+
+            // 维护缓冲区大小，如果超出限制则移除最旧的条目
+            if (rawLogBuffer.length > MAX_RAW_LOG_BUFFER_LINES) {
+                const removeCount = rawLogBuffer.length - MAX_RAW_LOG_BUFFER_LINES;
+                rawLogBuffer.splice(0, removeCount); // 从数组开头移除指定数量的元素
+            }
+        }
+        // updateRawTextAreaUI (Keep origin implementation)
+        function updateRawTextAreaUI() {
+            const startIndex = Math.max(0, rawLogBuffer.length - MAX_RAW_TEXT_LINES_DISPLAY);
+            const linesToShow = rawLogBuffer.slice(startIndex);
+            const currentScrollTop = rawDataOutput.scrollTop;
+            const content = linesToShow.join('\n');
+
+            if (rawDataOutput.value !== content) {
+                rawDataOutput.value = content;
+                const scrollThreshold = 30;
+                const wasNearBottom = rawDataOutput.scrollHeight - currentScrollTop - rawDataOutput.clientHeight < scrollThreshold;
+                if (wasNearBottom) {
+                    rawDataOutput.scrollTop = rawDataOutput.scrollHeight;
+                }
+            }
+        }
+
+        // updateParsedDataDisplay (Keep origin implementation, hardcoded strings)
+        function updateParsedDataDisplay() {
+            if (!parsedDataDisplay) return;
+            if (latestParsedValues.length === 0) {
+                parsedDataDisplay.innerHTML = `<span class="text-gray-400 text-xs italic">Waiting for data...</span>`;
+                return;
+            }
+            let htmlContent = '';
+            latestParsedValues.forEach((value, index) => {
+                let displayValue = 'N/A';
+                if (value !== null && value !== undefined && !isNaN(value)) {
+                    displayValue = value.toFixed(3);
+                } else if (isNaN(value)) {
+                    displayValue = 'NaN';
+                }
+                htmlContent += `<div class="channel-value"><span class="channel-label">Ch ${index + 1}:</span>${displayValue}</div>`;
+            });
+            parsedDataDisplay.innerHTML = htmlContent;
+        }
+
+        // trimDataBuffer (Modified to trim based on point count)
+        function trimDataBuffer() {
+            const pointsToRemove = dataBuffer.length - maxBufferPoints; // Calculate excess points
+            if (pointsToRemove > 0) {
+                dataBuffer.splice(0, pointsToRemove); // Remove oldest points from the beginning [modified from source: 387-391]
+                // console.log(`Trimmed ${pointsToRemove} points from dataBuffer.`);
+            }
+        }
+
+
+        // updateBufferStatus
+        function updateBufferStatus() {
+            if (!bufferUsageBar || !bufferStatus) return; // Safety check
+
+            const currentPoints = dataBuffer.length;
+            const usagePercent = maxBufferPoints > 0 ? (currentPoints / maxBufferPoints) * 100 : 0;
+
+            bufferUsageBar.style.width = `${usagePercent.toFixed(1)}%`; // [modified from source: 391-398]
+
+            let statusText = `缓冲点数: ${currentPoints.toLocaleString()} / ${maxBufferPoints.toLocaleString()}`;
+
+            // Add estimation string
+            if (isCollecting && estimatedBufferTimeRemainingSec !== null && estimatedBufferTimeRemainingSec > 0) {
+                statusText += ` | 预计剩余: ${formatSecondsToHMS(estimatedBufferTimeRemainingSec)}/${formatSecondsToHMS(estimatedBufferTimeSec)}`;
+            } else if (isCollecting && currentDataRateHz > 0 && usagePercent>=99) {
+                statusText += ` | 缓冲区已满 (存储约 ${formatSecondsToHMS(estimatedBufferTimeSec)})`;
+            } else if (isCollecting) {
+                statusText += ` | 预计剩余: 计算中...`;
+            } else {
+                // Optionally clear estimate when not collecting, or keep the last value? Let's clear.
+                // statusText += ` | 预计剩余: -`;
+            }
+
+            bufferStatus.textContent = statusText;
+        }
+
+        function calculateBufferEstimate() {
+            const currentPoints = dataBuffer.length;
+            const remainingPoints = maxBufferPoints - currentPoints;
+
+            if (isCollecting && currentDataRateHz > 0) {
+                if (remainingPoints < 0) {
+                    // If we've gone over the limit, reset to zero
+                    estimatedBufferTimeRemainingSec = 0;
+
+                } else {
+                    estimatedBufferTimeRemainingSec = remainingPoints / currentDataRateHz;
+                }
+                estimatedBufferTimeSec = maxBufferPoints / currentDataRateHz;
+            } else {
+                // Reset if rate is zero, buffer full, or not collecting
+                estimatedBufferTimeRemainingSec = null;
+                estimatedBufferTimeSec = null;
+            }
+        }
+
+        // Added: Start the 1-second interval for estimation and UI update
+        function startBufferEstimationTimer() {
+            stopBufferEstimationTimer(); // Clear previous interval if any
+            bufferEstimateInterval = setInterval(() => {
+                calculateBufferEstimate(); // Calculate the new estimate
+                updateBufferStatus();      // Update the UI display
+            }, ESTIMATION_UPDATE_INTERVAL_MS);
+            console.log("缓冲预估定时器已启动。");
+        }
+
+        // Added: Stop the estimation interval
+        function stopBufferEstimationTimer() {
+            if (bufferEstimateInterval) {
+                clearInterval(bufferEstimateInterval);
+                bufferEstimateInterval = null;
+                // console.log("缓冲预估定时器已停止。");
+            }
+        }
+
+        // Added: Helper function to format seconds into H:M:S or M:S or S string
+        function formatSecondsToHMS(totalSeconds) {
+            if (totalSeconds === null || totalSeconds < 0 || !isFinite(totalSeconds)) {
+                return "-";
+            }
+            if (totalSeconds === Infinity) {
+                return "∞";
+            }
+
+            const seconds = Math.floor(totalSeconds % 60);
+            const minutes = Math.floor((totalSeconds / 60) % 60);
+            const hours = Math.floor(totalSeconds / 3600);
+
+            const sStr = String(seconds).padStart(2, '0');
+            const mStr = String(minutes).padStart(2, '0');
+
+            if (hours > 0) {
+                return `${hours}h ${mStr}m ${sStr}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${sStr}s`;
+            } else {
+                // Maybe show one decimal for small values?
+                if (totalSeconds < 10) {
+                    return `${totalSeconds.toFixed(1)}s`;
+                }
+                return `${seconds}s`;
+            }
+        }
+
+        // updateDataRateDisplay (Modified to store rate globally)
+        function updateDataRateDisplay(rate) {
+            currentDataRateHz = rate; // Added: Store the calculated rate
+            dataRateDisplay.textContent = `速率: ${rate.toFixed(1)} Hz`; // [source: 399]
+        }
+        // --- Data Handling Helpers (Cont.) ---
+
+        // clearAllData (Modified for TimeChart)
+        function clearAllData() {
+            console.log("正在清除所有数据..."); // Clearing all data...
+            if (isCollecting) {
+                stopDataCollection(); // Stop collection first
+            } else {
+                stopBufferEstimationTimer();
+            }
+
+            // 清除主线程状态
+            mainThreadDataQueue = [];
+            dataBuffer = []; // Clear CSV buffer
+            rawLogBuffer = []; // Clear raw log buffer
+            currentRunStartTime = 0;
+            lastTimestampProcessed = 0; // Reset for buffer usage calculation
+            latestWorkerTimestamp = 0;
+            latestParsedValues = [];
+            currentDataRateHz = 0; // Added: Reset rate
+            estimatedBufferTimeRemainingSec = null; // Added: Reset estimate
+
+            // 清除 UI 元素
+            rawDataOutput.value = '';
+            updateParsedDataDisplay(); // Reset parsed display
+            quaternionErrorOverlay.style.display = 'none'; // Hide quat error
+            updateBufferStatus(); // Reset buffer status UI
+            updateDataRateDisplay(0); // Reset rate display
+            quatFpsDisplay.textContent = 'FPS: --'; // Reset quat FPS
+            workerStatusDisplay.style.display = 'none'; // Hide worker status
+
+            // 重置 TimeChart
+            if (timeChartInstance) {
+                try {
+                    timeChartInstance.dispose();
+                } catch (e) { console.warn("处置旧 TimeChart 实例时出错:", e); }
+                timeChartInstance = null;
+            }
+            // 重新初始化 TimeChart 以显示空图表
+            const numChannels = parseInt(simNumChannelsInput.value) || 1;
+            initializeTimeChart(numChannels);
+
+            // 重置计数器/计时器
+            quatFrameCount = 0; quatLastFpsCalcTime = performance.now(); // Reset quat FPS counter
+            dataPointCounter = 0; lastRateCheckTime = performance.now(); // Reset rate counter
+            updateBufferStatus(); // Added: Update buffer status after clearing
+            updateButtonStates(); // Update button states (e.g., disable download/clear)
+
+            console.log("数据已清除。"); // Data cleared.
+        }
+
+        // downloadCSV (Keep implementation from previous version)
+        function downloadCSV() {
+            if (dataBuffer.length === 0) {
+                alert("没有数据可以下载。"); // No data to download.
+                return;
+            }
+
+            console.log("正在从 dataBuffer 生成 CSV..."); // Generating CSV from dataBuffer...
+            const numChannels = dataBuffer.length > 0 ? dataBuffer[0].values.length : 0;
+            if (numChannels === 0) {
+                alert("缓冲区中未找到通道数据。"); // No channel data found in buffer.
+                return;
+            }
+            const numPoints = dataBuffer.length;
+
+            let header = "Timestamp (s)";
+            for (let i = 0; i < numChannels; i++) {
+                // Use default channel names
+                const seriesName = `Ch ${i + 1}`;
+                header += `,${seriesName}`;
+            }
+            header += "\n";
+
+            new Promise((resolve, reject) => {
+                try {
+                    const rows = [];
+                    rows.push(header);
+                    for (let i = 0; i < numPoints; i++) {
+                        const entry = dataBuffer[i];
+                        if (!entry || !entry.timestamp || !Array.isArray(entry.values)) continue;
+
+                        let rowValues = [];
+                        // Timestamp (absolute worker time in seconds)
+                        rowValues.push(typeof entry.timestamp === 'number' ? (entry.timestamp / 1000.0).toFixed(6) : '');
+                        // Channel values
+                        for (let ch = 0; ch < numChannels; ch++) {
+                            const value = entry.values[ch];
+                            rowValues.push((typeof value === 'number' && isFinite(value)) ? value.toFixed(6) : '');
+                        }
+                        rows.push(rowValues.join(','));
+                    }
+                    resolve(rows.join('\n'));
+                } catch (error) {
+                    reject(error);
+                }
+            }).then(csvContent => {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                link.setAttribute("download", `web_plotter_data_${timestamp}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                console.log("CSV 下载已启动。"); // CSV download initiated.
+            }).catch(error => {
+                console.error("生成 CSV 时出错:", error); // Error generating CSV:
+                alert("导出 CSV 时出错: " + error.message); // Error exporting CSV:
+            });
+        }
+
+
+
+        // --- Charting (TimeChart) ---
+        // Modified to use TimeChart.core and include CustomInteractionPlugin
+        function initializeTimeChart(numChannels) {
+            console.log(`初始化 TimeChart。通道数: ${numChannels}`); // Initializing TimeChart. Channels:
+            if (timeChartInstance) {
+                try { timeChartInstance.dispose(); } catch (e) { console.warn("处置旧 TimeChart 实例时出错:", e); }
+                timeChartInstance = null;
+            }
+
+            // 重置状态
+            latestWorkerTimestamp = 0;
+            dataBuffer = [];
+            rawLogBuffer = [];
+            latestParsedValues = [];
+
+            const el = document.getElementById('lineChart');
+            if (!el) {
+                console.error("未找到 TimeChart 目标 div #lineChart！"); return;
+            }
+
+            // 准备初始系列
+            let initialSeries = [];
+            for (let i = 0; i < numChannels; i++) {
+                initialSeries.push({
+                    name: `Ch ${i + 1}`, data: [], lineWidth: 1.5,
+                    color: seriesColors[i % seriesColors.length] // Assign color
+                });
+            }
+
+            try {
+                const now = performance.now(); // Use current time for initial range
+                // 使用 TimeChart.core 避免默认插件，手动添加所需插件
+                timeChartInstance = new TimeChart.core(el, {
+                    baseTime: baseTimeForChart, // Use fixed base time
+                    series: initialSeries,
+                    lineWidth: 1.5,
+                    xRange: { min: now - 10000, max: now }, // Initial 10s view using absolute time
+                    yRange: 'auto',
+                    realTime: followData, // Initial follow state
+                    renderPaddingLeft: 45, renderPaddingRight: 10, renderPaddingTop: 10, renderPaddingBottom: 20,
+                    legend: { visible: true },
+                    debugWebGL: false,
+                    plugins: { // Explicitly add necessary plugins, excluding default zoom
+                        lineChart: TimeChart.plugins.lineChart,
+                        d3Axis: TimeChart.plugins.d3Axis,
+                        legend: TimeChart.plugins.legend,
+                        tooltip: new TimeChart.plugins.TimeChartTooltipPlugin({ // Using plugin class
+                            enabled: true,
+                            xLabel: 'Time',
+                            xFormatter: (x) => {
+                                try {
+                                    return new Date(x + performanceTimeToDateEpochOffset).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+                                } catch (e) { return String(x); }
+                            },
+                            yFormatter: (y) => (typeof y === 'number' ? y.toFixed(4) : 'N/A'),
+                        }),
+                        nearestPoint: TimeChart.plugins.nearestPoint, // Keep nearest point for tooltip
+                        crosshair: TimeChart.plugins.crosshair,       // Keep crosshair if desired
+                        // Add our custom interaction plugin instance
+                        customInteraction: customInteractionPluginInstance = new CustomInteractionPlugin()
+                    }
+                });
+                console.log("TimeChart 核心实例已创建:", timeChartInstance); // TimeChart core instance created:
+            } catch (error) {
+                console.error("初始化 TimeChart 时出错:", error);
+                updateStatusMessage(`初始化图表时出错: ${error.message}`);
+            }
+
+            // 重置计数器
+            dataPointCounter = 0;
+            lastRateCheckTime = performance.now();
+            updateDataRateDisplay(0);
+        }
+
+        // --- Custom Interaction Plugin ---
+        class CustomInteractionPlugin {
+            chart = null;
+            eventEl = null;
+            isPanning = false;
+            lastPointerPos = { x: 0, y: 0 };
+            startPanDomains = { x: null, y: null };
+
+
+            apply(chartInstance) {
+                console.log("应用自定义交互插件..."); // Applying Custom Interaction Plugin...
+                this.chart = chartInstance;
+                // Use contentBoxDetector which excludes padding
+                this.eventEl = chartInstance.contentBoxDetector.node;
+                if (!this.eventEl) {
+                    console.error("无法获取交互事件元素！"); // Cannot get interaction event element!
+                    return this;
+                }
+
+                // Ensure element can receive focus for keyboard events if needed (Esc to reset?)
+                this.eventEl.style.outline = 'none'; // Hide focus outline
+                this.eventEl.tabIndex = -1; // Allow programmatic focus
+
+                // Bind methods to keep 'this' context correct
+                this.onWheel = this.onWheel.bind(this);
+                this.onPointerDown = this.onPointerDown.bind(this);
+                this.onPointerMove = this.onPointerMove.bind(this);
+                this.onPointerUp = this.onPointerUp.bind(this);
+                this.onPointerLeave = this.onPointerUp.bind(this); // Treat leave same as up
+                this.onPointerCancel = this.onPointerUp.bind(this); // Treat cancel same as up
+                this.onDoubleClick = this.onDoubleClick.bind(this);
+
+                // Add listeners
+                this.eventEl.addEventListener('wheel', this.onWheel, { passive: false }); // Need passive: false to preventDefault
+                this.eventEl.addEventListener('pointerdown', this.onPointerDown);
+                this.eventEl.addEventListener('pointermove', this.onPointerMove);
+                this.eventEl.addEventListener('pointerup', this.onPointerUp);
+                this.eventEl.addEventListener('pointerleave', this.onPointerLeave);
+                this.eventEl.addEventListener('pointercancel', this.onPointerCancel);
+                this.eventEl.addEventListener('dblclick', this.onDoubleClick);
+
+                // Cleanup on dispose
+                chartInstance.model.disposing.on(() => {
+                    console.log("移除自定义交互监听器..."); // Removing custom interaction listeners...
+                    this.eventEl.removeEventListener('wheel', this.onWheel);
+                    this.eventEl.removeEventListener('pointerdown', this.onPointerDown);
+                    this.eventEl.removeEventListener('pointermove', this.onPointerMove);
+                    this.eventEl.removeEventListener('pointerup', this.onPointerUp);
+                    this.eventEl.removeEventListener('pointerleave', this.onPointerLeave);
+                    this.eventEl.removeEventListener('pointercancel', this.onPointerCancel);
+                    this.eventEl.removeEventListener('dblclick', this.onDoubleClick);
+                });
+
+                return this; // Return instance so it can be accessed via chart.plugins.customInteraction
+            }
+
+            // --- Wheel Event Handler ---
+            onWheel(event) {
+                if (!this.chart) return;
+                event.preventDefault();
+                event.stopPropagation();
+
+                // --- Disable Follow Immediately ---
+                if (followData) {
+                    console.log("交互开始，禁用 Follow"); // Interaction started, disabling follow
+                    followData = false;
+                    this.chart.options.realTime = false;
+                    if (followToggle) followToggle.checked = false;
+                    // No chart.update() needed here, zoom/pan will trigger it
+                }
+
+                const rect = this.eventEl.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                // Convert pixel coordinates to data coordinates for zoom center
+                const zoomCenterX = this.chart.model.xScale.invert(mouseX);
+                const zoomCenterY = this.chart.model.yScale.invert(mouseY);
+
+                const scaleFactor = event.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+
+                let domainChanged = false;
+
+                if (event.shiftKey) {
+                    // Zoom Y-axis
+                    const currentYDomain = this.chart.model.yScale.domain();
+                    const [newYMin, newYMax] = this.calculateNewDomain(currentYDomain, scaleFactor, zoomCenterY);
+                    // Apply checks (e.g., min/max extent if needed)
+                    // TODO: Add checks similar to applyNewDomain from chartZoom/utils.ts if necessary
+                    this.chart.model.yScale.domain([newYMin, newYMax]);
+                    this.chart.options.yRange = null; // Allow manual zoom to override auto
+                    domainChanged = true;
+                } else {
+                    // Zoom X-axis
+                    const currentXDomain = this.chart.model.xScale.domain();
+                    const [newXMin, newXMax] = this.calculateNewDomain(currentXDomain, scaleFactor, zoomCenterX);
+                    // TODO: Add checks similar to applyNewDomain
+                    this.chart.model.xScale.domain([newXMin, newXMax]);
+                    this.chart.options.xRange = null; // Allow manual zoom to override auto
+                    domainChanged = true;
+                }
+
+                if (domainChanged) {
+                    this.chart.update();
+                    // Check if we should re-enable follow after zoom
+                    this.checkAutoFollow();
+                }
+            }
+
+            onDoubleClick(event) {
+                if (!this.chart) return;
+                console.log("双击事件触发，启用 Follow");
+                event.preventDefault();
+                this.chart.options.realTime = true;
+                if (followToggle) followToggle.checked = true;
+                this.chart.options.yRange = "auto";
+                followData = true;
+                if (this.isPanning) {
+                    this.isPanning = false;
+                    this.eventEl.style.cursor = '';
+                    try {
+                        this.eventEl.releasePointerCapture(event.pointerId);
+                    } catch (e) {
+                        // Ignore errors if capture was already lost
+                    }
+                }
+            }
+
+            // --- Pointer Down Handler ---
+            onPointerDown(event) {
+                // Only handle primary button (usually left mouse or single touch)
+                if (!event.isPrimary || event.button !== 0) return;
+
+                // --- Disable Follow Immediately ---
+                if (followData) {
+                    console.log("交互开始，禁用 Follow");
+                    followData = false;
+                    this.chart.options.realTime = false;
+                    if (followToggle) followToggle.checked = false;
+                    // Update might be needed if only disabling follow without moving
+                    this.chart.update();
+                }
+
+
+                this.isPanning = true;
+                const rect = this.eventEl.getBoundingClientRect();
+                this.lastPointerPos = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                // Store initial domains for panning calculation
+                this.startPanDomains = {
+                    x: [...this.chart.model.xScale.domain()],
+                    y: [...this.chart.model.yScale.domain()]
+                };
+
+                this.eventEl.style.cursor = 'grabbing';
+                this.eventEl.setPointerCapture(event.pointerId);
+                event.preventDefault(); // Prevent text selection, etc.
+                event.stopPropagation();
+            }
+
+            // --- Pointer Move Handler ---
+            onPointerMove(event) {
+                if (!this.isPanning || !event.isPrimary) return;
+
+                const rect = this.eventEl.getBoundingClientRect();
+                const currentX = event.clientX - rect.left;
+                const currentY = event.clientY - rect.top;
+
+                const deltaX = currentX - this.lastPointerPos.x;
+                const deltaY = currentY - this.lastPointerPos.y;
+
+                let domainChanged = false;
+
+                // Pan X
+                const kx = (this.startPanDomains.x[1] - this.startPanDomains.x[0]) / (this.chart.model.xScale.range()[1] - this.chart.model.xScale.range()[0]);
+                const dxDomain = deltaX * kx;
+                // Calculate new potential domain based on the *start* domain and *total* delta
+                const currentDeltaXDomain = (currentX - this.lastPointerPos.x + (this.lastPointerPos.x - this.lastPointerPos.x)) * kx; // Simplified: deltaX * kx
+                const newXDomain = this.startPanDomains.x.map(d => d - dxDomain);
+                // TODO: Add boundary checks (min/max domain) if necessary
+                this.chart.model.xScale.domain(newXDomain);
+                this.chart.options.xRange = null; // Override auto/realTime range
+                domainChanged = true;
+
+
+                // Pan Y
+                const ky = (this.startPanDomains.y[1] - this.startPanDomains.y[0]) / (this.chart.model.yScale.range()[1] - this.chart.model.yScale.range()[0]);
+                const dyDomain = deltaY * ky;
+                const newYDomain = this.startPanDomains.y.map(d => d - dyDomain);
+                // TODO: Add boundary checks
+                this.chart.model.yScale.domain(newYDomain);
+                this.chart.options.yRange = null; // Override auto/realTime range
+                domainChanged = true;
+
+
+                if (domainChanged) {
+                    this.chart.update();
+                }
+
+                // Update last position for next move delta calculation
+                this.lastPointerPos = { x: currentX, y: currentY };
+                // Update start domains to current domains for smooth continuous panning feel
+                this.startPanDomains = {
+                    x: [...this.chart.model.xScale.domain()],
+                    y: [...this.chart.model.yScale.domain()]
+                };
+            }
+
+            // --- Pointer Up/Leave/Cancel Handler ---
+            onPointerUp(event) {
+                if (!event.isPrimary) return; // Only react to the primary pointer ending
+
+                if (this.isPanning) {
+                    this.isPanning = false;
+                    this.eventEl.style.cursor = '';
+                    try {
+                        this.eventEl.releasePointerCapture(event.pointerId);
+                    } catch (e) {
+                        // Ignore errors if capture was already lost
+                    }
+                    // Check if follow should be re-enabled
+                    this.checkAutoFollow();
+                }
+            }
+
+            // --- Helper: Calculate New Domain for Zoom ---
+            calculateNewDomain(currentDomain, scaleFactor, zoomCenter) {
+                const [min, max] = currentDomain;
+                const newMin = zoomCenter - (zoomCenter - min) * scaleFactor;
+                const newMax = zoomCenter + (max - zoomCenter) * scaleFactor;
+                // Basic check to prevent inverted domain
+                if (newMin >= newMax) return currentDomain;
+                return [newMin, newMax];
+            }
+
+            // --- Helper: Check and Re-enable Follow ---
+            checkAutoFollow() {
+                if (!this.chart || this.chart.options.realTime) { // Don't check if already following
+                    return;
+                }
+
+                const currentXDomain = this.chart.model.xScale.domain();
+                let maxXData = -Infinity;
+
+                // Find the absolute latest timestamp across all visible series
+                this.chart.options.series.forEach(s => {
+                    if (s.visible && s.data.length > 0) {
+                        const seriesMaxX = s.data[s.data.length - 1].x;
+                        if (seriesMaxX > maxXData) {
+                            maxXData = seriesMaxX;
+                        }
+                    }
+                });
+
+                if (maxXData === -Infinity) return; // No data
+
+                // Define a threshold (e.g., last 5% of the view, or a fixed small time amount)
+                // Using a small fixed time amount might be more reliable than percentage
+                const timeThreshold = 1; // Re-enable follow if view ends within 500ms of latest data
+                const viewEndX = currentXDomain[1];
+
+                // console.log(`Check Auto Follow: View End=${viewEndX.toFixed(0)}, Max Data=${maxXData.toFixed(0)}, Diff=${(maxXData - viewEndX).toFixed(0)}`);
+
+                if (viewEndX >= maxXData - timeThreshold) {
+                    console.log("视图滚动到末尾，自动开启 Follow"); // View scrolled to end, auto-enabling Follow
+                    followData = true;
+                    this.chart.options.realTime = true;
+                    if (followToggle) followToggle.checked = true;
+                    this.chart.update(); // Update chart to reflect realTime change
+                }
+            }
+        } // End CustomInteractionPlugin
+
+
+        // --- Quaternion View (Three.js) ---
+        // initializeQuaternionView, updateQuaternionView, animateQuaternion
+        // Keep implementations from origin (no changes needed here as per requirement)
+        function initializeQuaternionView() {
+            // console.log("Initializing Three.js view.");
+            if (!quaternionViewDiv) { console.error("Quaternion view container not found."); return; }
+
+            // Stop existing animation loop and clear previous renderer/controls
+            if (quatAnimationRequest) { cancelAnimationFrame(quatAnimationRequest); quatAnimationRequest = null; }
+            while (quaternionViewDiv.firstChild && quaternionViewDiv.firstChild !== quaternionErrorOverlay) {
+                quaternionViewDiv.removeChild(quaternionViewDiv.firstChild);
+            }
+            threeOrbitControls?.dispose(); // Dispose previous controls if they exist
+            threeOrbitControls = null;
+            quatLastRenderTime = 0; // Reset render time tracking
+
+            try {
+                const width = quaternionViewDiv.clientWidth;
+                const height = quaternionViewDiv.clientHeight;
+                if (width <= 0 || height <= 0) {
+                    console.warn("Quaternion view dimensions invalid on init. Will retry on resize.");
+                    return; // Don't initialize if dimensions are zero
+                }
+
+                // Scene setup
+                threeScene = new THREE.Scene();
+                threeScene.background = new THREE.Color(0xe5e7eb); // Match background
+
+                // Camera setup
+                threeCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                threeCamera.position.set(0, 1.5, 3); // Initial camera position
+
+                // Renderer setup
+                threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+                threeRenderer.setSize(width, height);
+                quaternionViewDiv.insertBefore(threeRenderer.domElement, quaternionErrorOverlay); // Add canvas to div
+
+                // Object setup (e.g., a cone representing orientation)
+                const geometry = new THREE.ConeGeometry(0.5, 1.5, 16); // Cone: radius, height, segments
+                geometry.rotateX(Math.PI / 2); // Orient cone along an axis
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0x3b82f6, // Blue color
+                    metalness: 0.3,
+                    roughness: 0.6
+                });
+                threeObject = new THREE.Mesh(geometry, material);
+                threeScene.add(threeObject);
+
+                // Axes helper
+                threeAxesHelper = new THREE.AxesHelper(1.5); // Length of axes lines
+                threeScene.add(threeAxesHelper);
+
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                threeScene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+                directionalLight.position.set(1, 2, 1.5).normalize();
+                threeScene.add(directionalLight);
+
+                // OrbitControls setup
+                if (typeof THREE.OrbitControls === 'function') {
+                    threeOrbitControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+                    threeOrbitControls.enableDamping = true; // Smooth camera movement
+                    threeOrbitControls.dampingFactor = 0.1;
+                    threeOrbitControls.screenSpacePanning = false; // Prevent panning off screen easily
+                    threeOrbitControls.minDistance = 1; // Zoom limits
+                    threeOrbitControls.maxDistance = 10;
+                } else {
+                    console.error("THREE.OrbitControls not loaded correctly!");
+                }
+
+                // Initial render
+                threeRenderer.render(threeScene, threeCamera);
+                // Start animation loop if not already running
+                if (!quatAnimationRequest) {
+                    animateQuaternion();
+                }
+            } catch (error) {
+                console.error("Error initializing Three.js:", error);
+                quaternionErrorOverlay.textContent = `Three.js initialization failed: ${error.message}`; // Hardcoded error
+                quaternionErrorOverlay.style.display = 'flex';
+            }
+        }
+        function updateQuaternionView(w, x, y, z) {
+            // Validate input
+            if (!threeObject || isNaN(w) || isNaN(x) || isNaN(y) || isNaN(z)) {
+                // Error overlay logic handled in processMainThreadQueue now
+                if (isNaN(w) || isNaN(x) || isNaN(y) || isNaN(z)) {
+                    quaternionErrorOverlay.textContent = "Receiving invalid (NaN) quaternion data."; // Hardcoded NaN error
+                    quaternionErrorOverlay.style.display = 'flex';
+                }
+                return; // Don't update if data is invalid
+            }
+
+            // Hide error overlay if data is valid (might have been shown previously)
+            quaternionErrorOverlay.style.display = 'none';
+            // Update the last valid quaternion state and normalize it
+            lastValidQuaternion.set(x, y, z, w).normalize();
+            // Apply the rotation to the 3D object
+            threeObject.setRotationFromQuaternion(lastValidQuaternion);
+            // Note: Rendering happens in the animateQuaternion loop
+        }
+        function animateQuaternion() {
+            quatAnimationRequest = requestAnimationFrame(animateQuaternion); // Loop
+
+            const now = performance.now();
+            const elapsed = now - quatLastRenderTime;
+            const QUAT_TARGET_INTERVAL = 1000 / 60; // Target ~60fps
+
+            // Throttle rendering to target FPS
+            if (elapsed >= QUAT_TARGET_INTERVAL) {
+                quatLastRenderTime = now - (elapsed % QUAT_TARGET_INTERVAL); // Adjust for precise timing
+
+                // Update controls (for damping effect)
+                threeOrbitControls?.update();
+                // Render the scene
+                if (threeRenderer && threeScene && threeCamera) {
+                    threeRenderer.render(threeScene, threeCamera);
+                }
+
+                // Calculate and display FPS
+                quatFrameCount++;
+                const fpsDelta = now - quatLastFpsCalcTime;
+                if (fpsDelta >= 1000) { // Update FPS display every second
+                    quatActualFps = (quatFrameCount * 1000) / fpsDelta;
+                    quatFpsDisplay.textContent = `FPS: ${quatActualFps.toFixed(1)}`;
+                    quatFrameCount = 0;
+                    quatLastFpsCalcTime = now;
+                }
+            }
+        }
+
+
+        // --- Data Sources Control ---
+        // (Functions startDataCollection, stopDataCollection, connectSerial, disconnectSerial,
+        // handleSerialDisconnectEvent, handleSerialDisconnectCleanup, updateSerialParser remain mostly
+        // the same as the corrected previous version, ensuring currentRunStartTime, totalActiveCollectionTimeMs are handled)
+        function startDataCollection() {
+            if (isCollecting || !dataWorker) {
+                console.warn("采集已在进行中或 Worker 未就绪，无法启动。"); // Collection already running or worker not ready, cannot start.
+                return;
+            }
+
+            const isSimulated = currentDataSource === 'simulated';
+            const isSerial = currentDataSource === 'webserial';
+            const isSerialConnected = isSerial && serialPort !== null; // Check main thread port ref
+
+            console.log(`开始采集`); // Starting collection, start timestamp: ..., accumulated time: ...
+
+
+            // --- Chart Initialization / Channel Check ---
+            const currentSimChannels = parseInt(simNumChannelsInput.value) || 1;
+            // 检查 TimeChart 实例是否存在或通道数是否匹配 (仅模拟数据需要此检查)
+            if (isSimulated && (!timeChartInstance || timeChartInstance.options.series.length !== currentSimChannels)) {
+                console.log(`模拟数据通道数变更或图表未初始化，重新初始化图表为 ${currentSimChannels} 通道。`); // Sim channel count changed or chart not init, reinitializing chart...
+                initializeTimeChart(currentSimChannels);
+                updateQuaternionSelectors(currentSimChannels); // Ensure Quat selectors match
+            } else if (!timeChartInstance) { // 如果任何源都没有图表实例，则初始化
+                console.log("图表未初始化，进行初始化..."); // Chart not initialized, initializing...
+                initializeTimeChart(currentSimChannels); // Use sim channels as default if unknown
+                updateQuaternionSelectors(currentSimChannels);
+            }
+            // 确保图表实例存在
+            if (!timeChartInstance) {
+                console.error("无法初始化 TimeChart 实例，采集无法启动。"); // Failed to initialize TimeChart instance, cannot start collection.
+                return;
+            }
+
+            // 检查数据源连接状态
+            if (!isSimulated && !(isSerial && isSerialConnected)) {
+                updateStatusMessage("状态：错误 - 无可用数据源或串口未连接"); // Status: Error - No data source or serial not connected
+                // 重置计时器状态
+                return;
+            }
+
+            // --- Update State and UI ---
+            isCollecting = true;
+            // currentRunStartTime = performance.now(); // 记录主线程开始时间戳，用于相对时间计算
+            latestWorkerTimestamp = 0; // Reset worker timestamp tracker
+            estimatedBufferTimeRemainingSec = null;
+            currentDataRateHz = 0; // Reset rate counter
+            lastRateCheckTime = performance.now(); // Start rate counting from now [modified from source: 601]
+            dataPointCounter = 0; // Reset rate counter
+
+            lastRateCheckTime = performance.now(); // Start rate counting from now
+            mainThreadDataQueue = []; // Clear any stale data in queue
+            updateStatusMessage("状态：采集中 (Worker)..."); // Status: Collecting (Worker)...
+            updateButtonStates(); // 更新按钮状态
+            startBufferEstimationTimer();
+
+            // 如果 Follow 开关是勾选的，并且图表选项 realTime 不是 true，则设置它
+            if (followToggle.checked && !timeChartInstance.options.realTime) {
+                console.log("启动采集时启用 Follow 模式。"); // Enabling Follow mode on start collection.
+                timeChartInstance.options.realTime = true;
+                followData = true; // Ensure internal state matches
+                // 通常不需要在这里调用 update，realTime 会自动处理
+            } else if (!followToggle.checked && timeChartInstance.options.realTime) {
+                // 如果启动时开关未勾选但图表是 realTime，则关闭它
+                timeChartInstance.options.realTime = false;
+                followData = false;
+            }
+
+
+            // --- Start Main Thread Processing Interval ---
+            if (mainQueueProcessInterval) clearInterval(mainQueueProcessInterval);
+            mainQueueProcessInterval = setInterval(processMainThreadQueue, MAIN_QUEUE_PROCESS_INTERVAL_MS);
+            console.log("主线程处理间隔已启动。"); // Main thread processing interval started.
+
+            // --- Send Start Command to Worker ---
+            if (isSimulated) {
+                console.log("向 Worker 发送模拟数据启动命令。"); // Sending simulated data start command to worker.
+                dataWorker.postMessage({
+                    type: 'start',
+                    payload: {
+                        source: 'simulated',
+                        config: {
+                            numChannels: parseInt(simNumChannelsInput.value) || 1,
+                            frequency: parseInt(simFrequencyInput.value) || DEFAULT_FREQUENCY_HZ,
+                            amplitude: parseFloat(simAmplitudeInput.value) || 1,
+                        }
+                    }
+                });
+            } else if (isSerialConnected) {
+                console.log("主线程：正在将 SerialPort 传输给 Worker。"); // Main: Transferring SerialPort to worker.
+                try {
+                    dataWorker.postMessage({
+                        type: 'start',
+                        payload: {
+                            source: 'webserial',
+                            port: serialPort,
+                            config: { /* Add relevant serial config if needed */ },
+                            parserCode: serialParserTextarea.value
+                        }
+                    }, [serialPort]); // Transfer ownership
+                    serialPort = null; // Nullify main thread reference *after* successful transfer
+                    console.log("主线程：SerialPort 已传输。"); // Main: SerialPort transferred.
+                    updateButtonStates(); // Update UI to reflect port is now with worker
+                } catch (transferError) {
+                    console.error("主线程：传输 SerialPort 时出错:", transferError); // Main: Error transferring SerialPort:
+                    updateStatusMessage(`状态：传输端口到 Worker 失败: ${transferError.message}`); // Status: Failed to transfer port to Worker:
+                    // Reset state as start failed
+                    isCollecting = false;
+                    clearInterval(mainQueueProcessInterval); mainQueueProcessInterval = null;
+                    updateButtonStates();
+                    // Attempt to clean up the port reference that failed to transfer
+                    if (serialPort) { // If transfer failed, main thread might still hold the reference
+                        disconnectSerial(); // Try to close the port gracefully
+                    }
+                    return;
+                }
+            }
+            console.log("数据采集中..."); // Data collection active...
+        }
+        function stopDataCollection() {
+            stopBufferEstimationTimer(); // Added: Stop estimation timer
+            estimatedBufferTimeRemainingSec = null; // Clear estimate value
+            if (!isCollecting) {
+                console.log("采集已经停止。"); // Collection already stopped.
+                return;
+            }
+            console.warn("主线程：请求停止采集..."); // MAIN THREAD: Stop requested.
+
+            // --- 停止主线程处理间隔 ---
+            if (mainQueueProcessInterval) {
+                clearInterval(mainQueueProcessInterval);
+                mainQueueProcessInterval = null;
+                console.warn("主线程：队列处理间隔已停止。"); // Main: Queue processing interval STOPPED.
+            }
+
+            // --- 处理剩余数据 ---
+            console.log("主线程：正在处理停止前队列中的剩余数据..."); // Main: Processing remaining queue items before stopping...
+            processMainThreadQueue();
+            // 注意: TimeChart 的最终更新会在 processMainThreadQueue 内部被调用（如果需要）
+
+            // --- 更新状态和 Worker ---
+            isCollecting = false;
+            // currentRunStartTime = 0; // 不再需要重置这个，因为时间戳使用绝对值
+            if (dataWorker) {
+                console.log("主线程：向 Worker 发送停止命令。"); // Main: Sending stop command to worker.
+                dataWorker.postMessage({ type: 'stop' });
+            }
+
+            // --- 更新 UI ---
+            updateStatusMessage("状态：已停止"); // Status: Stopped
+            updateButtonStates();
+            updateBufferStatus(); // Added: Update buffer status one last time after stopping
+            updateDataRateDisplay(0); // 停止后速率归零
+
+            // 如果之前是 Web Serial 模式，则执行断开连接后的清理
+            if (currentDataSource === 'webserial') {
+                console.log("主线程：执行 Web Serial 断开清理。"); // Main: Performing Web Serial disconnect cleanup.
+                handleSerialDisconnectCleanup(); // 重置串口相关的 UI 状态
+            }
+
+            console.warn("主线程：采集已停止。"); // MAIN THREAD: Collection stopped.
+        }
+        // connectSerial (Keep origin implementation, uses updated status func)
+        async function connectSerial() {
+            if (!('serial' in navigator)) { alert("Error: Your browser does not support the Web Serial API.\nPlease use Chrome, Edge, or Opera."); return; } // Hardcoded English alert
+            if (serialPort) {
+                console.warn("Connect clicked, but port already exists on main thread. Disconnecting first.");
+                await disconnectSerial(); // Disconnect cleanly first
+            }
+            if (isCollecting) {
+                console.warn("Cannot connect while collecting data.");
+                return;
+            }
+
+            try {
+                updateStatusMessage("Status: Requesting port permission..."); // Hardcoded English
+                const requestedPort = await navigator.serial.requestPort();
+                updateStatusMessage("Status: Opening port..."); // Hardcoded English
+                const options = {
+                    baudRate: parseInt(baudRateSelect.value),
+                    dataBits: parseInt(dataBitsSelect.value),
+                    stopBits: parseInt(stopBitsSelect.value),
+                    parity: paritySelect.value,
+                    flowControl: flowControlSelect.value,
+                    bufferSize: 32768 // Default or adjust as needed
+                };
+                await requestedPort.open(options);
+
+                serialPort = requestedPort; // Store reference on main thread
+                console.log("Main: Serial port opened successfully.");
+                updateStatusMessage("Status: Serial port connected (Ready)"); // Hardcoded English
+
+                // Listen for external disconnect events
+                navigator.serial.addEventListener('disconnect', handleSerialDisconnectEvent);
+
+            } catch (error) {
+                console.error("Serial connection failed:", error);
+                updateStatusMessage(`Status: Serial connection failed: ${error.message}`); // Hardcoded English
+                serialPort = null; // Ensure port reference is null on error
+            } finally {
+                updateButtonStates(); // Update UI based on new state
+            }
+        }
+
+        // disconnectSerial (Keep origin implementation, uses updated status func)
+        async function disconnectSerial() {
+            console.log("Main: Disconnect requested.");
+            // 1. Stop collection if running
+            if (isCollecting) {
+                stopDataCollection();
+            }
+
+            // 2. Tell worker to release port reference (if it has it)
+            if (dataWorker) {
+                // This assumes the worker might hold the port even if not collecting (e.g., error state)
+                dataWorker.postMessage({ type: 'closePort' });
+            }
+
+            // 3. Close the port from the main thread's perspective (if main thread still holds it)
+            const portToClose = serialPort; // Capture current reference
+            if (portToClose) { // Only try to close if main thread has a reference
+                // Remove event listener early
+                navigator.serial.removeEventListener('disconnect', handleSerialDisconnectEvent);
+                try {
+                    updateStatusMessage("Status: Closing port..."); // Hardcoded English
+                    // Check readable state before potentially cancelling locked stream
+                    if (portToClose.readable && portToClose.readable.locked) {
+                        console.warn("Main: Attempting to cancel locked readable stream on main thread during disconnect.");
+                        // Best effort cancellation, might error if worker owns lock
+                        await portToClose.readable.cancel().catch(e => { console.warn("Main: Error cancelling main thread readable stream:", e) });
+                    }
+                    await portToClose.close(); // Close the port
+                    console.log("Main: Serial port closed successfully.");
+                } catch (error) {
+                    console.warn(`Main: Error closing serial port reference: ${error.message}`);
+                    updateStatusMessage(`Status: Error closing serial port: ${error.message}`); // Hardcoded English
+                }
+            } else {
+                // Remove listener even if port reference is null, just in case
+                navigator.serial?.removeEventListener('disconnect', handleSerialDisconnectEvent);
+            }
+
+            // 4. Clean up main thread state and UI
+            handleSerialDisconnectCleanup(); // Sets serialPort = null and updates UI
+        }
+
+        // handleSerialDisconnectEvent (Keep origin implementation, uses updated status func)
+        function handleSerialDisconnectEvent(event) {
+            console.warn("Browser reported serial disconnect event:", event.target);
+            updateStatusMessage("Status: Serial port disconnected (Event)"); // Hardcoded English
+
+            // If collecting via serial, stop collection process
+            if (isCollecting && currentDataSource === 'webserial') {
+                console.log("Main: Stopping collection due to external disconnect event.");
+                stopDataCollection(); // This will also call cleanup
+            } else {
+                // Otherwise, just perform cleanup
+                handleSerialDisconnectCleanup();
+            }
+        }
+
+        // handleSerialDisconnectCleanup (Keep origin implementation, uses updated status func)
+        function handleSerialDisconnectCleanup() {
+            serialPort = null; // Ensure reference is cleared
+            navigator.serial?.removeEventListener('disconnect', handleSerialDisconnectEvent); // Remove listener
+
+            // Reset connect button text and style
+            connectSerialButton.textContent = "连接串口"; // Hardcoded English
+            connectSerialButton.classList.replace('bg-yellow-500', 'bg-blue-500');
+            connectSerialButton.classList.replace('hover:bg-yellow-600', 'hover:bg-blue-600');
+
+            // Re-enable serial options only if not collecting
+            const disableSerialOptions = isCollecting;
+            serialOptionsDiv.querySelectorAll('select, textarea, button').forEach(el => el.disabled = disableSerialOptions);
+            updateParserButton.disabled = disableSerialOptions;
+
+            // Update status message if it wasn't already showing a disconnect/error state
+            const currentStatus = statusMessage.textContent;
+            const disconnectMessages = ["Status: Serial port disconnected", "Status: Serial connection failed", "Status: Error closing serial port"]; // Hardcoded English
+            if (!disconnectMessages.some(msg => currentStatus.includes(msg))) {
+                updateStatusMessage("Status: Serial port disconnected"); // Hardcoded English
+            }
+
+            updateButtonStates(); // Update all button states
+            // console.log("Main: Serial disconnect cleanup finished.");
+        }
+
+        // updateSerialParser (Keep origin implementation, uses updated status func)
+        function updateSerialParser() {
+            const code = serialParserTextarea.value;
+            try {
+                // Test parser syntax briefly on main thread
+                const testParser = new Function('rawDataString', code);
+                testParser("1,2"); // Simple test execution
+
+                // Send code to worker
+                if (dataWorker) {
+                    dataWorker.postMessage({ type: 'updateParser', payload: { code: code } });
+                    parserStatus.textContent = "Status: Sending to Worker..."; // Hardcoded English
+                    parserStatus.classList.remove('text-red-600', 'text-green-600');
+                } else {
+                    parserStatus.textContent = "Status: Worker not running"; // Hardcoded English
+                    parserStatus.classList.add('text-red-600');
+                }
+
+            } catch (error) { // Catch syntax errors from test run
+                parserStatus.textContent = `Status: Parser Error: ${error.message}`; // Hardcoded English
+                parserStatus.classList.add('text-red-600');
+                parserStatus.classList.remove('text-green-600');
+            }
+        }
+
+        // --- UI Updates & Event Listeners ---
+        // (Functions setupEventListeners, updateControlVisibility, updateButtonStates, updateQuaternionSelectors,
+        // updateQuaternionIndices, toggleFullscreen remain mostly the same as the corrected previous version,
+        // ensure followToggle listener only sets chart.options.realTime and calls update)
+        function setupEventListeners() {
+            dataSourceSelect.addEventListener('change', (e) => {
+                currentDataSource = e.target.value;
+                updateControlVisibility();
+                if (isCollecting) { stopDataCollection(); } // Stop if source changes during collection
+                updateButtonStates();
+            });
+
+            startStopButton.addEventListener('click', () => {
+                if (isCollecting) { stopDataCollection(); } else { startDataCollection(); }
+            });
+
+            connectSerialButton.addEventListener('click', () => {
+                // Button toggles connect/disconnect based on serialPort state
+                if (serialPort) { disconnectSerial(); } else { connectSerial(); }
+            });
+
+            updateParserButton.addEventListener('click', updateSerialParser);
+
+            // Quaternion selectors (Unchanged logic)
+            [quatWSelect, quatXSelect, quatYSelect, quatZSelect].forEach(sel => {
+                sel.addEventListener('change', updateQuaternionIndices);
+            });
+
+            // Buffer duration input listener (Unchanged logic)
+            bufferDurationInput.addEventListener('change', (e) => { // [source: 693]
+                const v = parseInt(e.target.value);
+                const MIN_BUFFER_POINTS = 1000; // Example minimum
+                if (v && v >= MIN_BUFFER_POINTS) {
+                    maxBufferPoints = v;
+                    console.log(`最大缓冲点数设置为: ${maxBufferPoints}`);
+                    trimDataBuffer(); // Trim the CSV buffer immediately if needed [source: 694]
+                    calculateBufferEstimate(); // Recalculate estimate immediately
+                    updateBufferStatus(); // Update UI immediately
+                } else {
+                    alert(`缓冲点数必须是一个大于或等于 ${MIN_BUFFER_POINTS} 的数字。`); // Buffer points must be >= MIN
+                    e.target.value = maxBufferPoints; // Revert to previous valid value [source: 695]
+                }
+            });
+
+            downloadCsvButton.addEventListener('click', downloadCSV); // Modified CSV func
+            clearDataButton.addEventListener('click', clearAllData); // Modified clear func
+
+            // Fullscreen buttons (Unchanged logic)
+            fullscreenButtons.forEach(button => {
+                button.addEventListener('click', toggleFullscreen);
+            });
+
+            // Simulation config listeners (Keep origin implementation)
+            simNumChannelsInput.addEventListener('change', (e) => {
+                const newChannelCount = parseInt(e.target.value) || 1;
+                if (!isCollecting) {
+                    // Re-initialize chart and selectors if not collecting
+                    updateQuaternionSelectors(newChannelCount);
+                    initializeTimeChart(newChannelCount); // Use TimeChart init
+                } else {
+                    // If collecting simulated data, inform worker
+                    console.warn("Channel count change will take effect after stopping and restarting collection, or immediately for simulation."); // Hardcoded English
+                    if (dataWorker && currentDataSource === 'simulated') {
+                        dataWorker.postMessage({
+                            type: 'updateSimConfig',
+                            payload: {
+                                numChannels: newChannelCount,
+                                frequency: parseInt(simFrequencyInput.value) || DEFAULT_FREQUENCY_HZ,
+                                amplitude: parseFloat(simAmplitudeInput.value) || 1
+                            }
+                        });
+                    }
+                }
+            });
+            simFrequencyInput.addEventListener('change', (e) => {
+                const newFrequency = parseInt(e.target.value) || DEFAULT_FREQUENCY_HZ;
+                // No MAX_PLOT_POINTS to update for TimeChart
+                // Inform worker if collecting simulated data
+                if (isCollecting && dataWorker && currentDataSource === 'simulated') {
+                    dataWorker.postMessage({
+                        type: 'updateSimConfig',
+                        payload: {
+                            numChannels: parseInt(simNumChannelsInput.value) || 1,
+                            frequency: newFrequency,
+                            amplitude: parseFloat(simAmplitudeInput.value) || 1
+                        }
+                    });
+                }
+            });
+            simAmplitudeInput.addEventListener('change', (e) => {
+                // Inform worker if collecting simulated data
+                if (isCollecting && dataWorker && currentDataSource === 'simulated') {
+                    dataWorker.postMessage({
+                        type: 'updateSimConfig',
+                        payload: {
+                            numChannels: parseInt(simNumChannelsInput.value) || 1,
+                            frequency: parseInt(simFrequencyInput.value) || DEFAULT_FREQUENCY_HZ,
+                            amplitude: parseFloat(e.target.value) || 1
+                        }
+                    });
+                }
+            });
+
+            // Raw data format buttons (Unchanged logic)
+            rawStrBtn.addEventListener('click', () => {
+                if (rawDisplayMode !== 'str') {
+                    rawDisplayMode = 'str';
+                    rawStrBtn.classList.add('active');
+                    rawHexBtn.classList.remove('active');
+                    updateRawTextAreaUI(); // Re-render log with new format
+                }
+            });
+            rawHexBtn.addEventListener('click', () => {
+                if (rawDisplayMode !== 'hex') {
+                    rawDisplayMode = 'hex';
+                    rawHexBtn.classList.add('active');
+                    rawStrBtn.classList.remove('active');
+                    updateRawTextAreaUI(); // Re-render log with new format
+                }
+            });
+        }
+        // updateControlVisibility (Keep origin implementation)
+        function updateControlVisibility() {
+            simulatedControls.style.display = currentDataSource === 'simulated' ? 'block' : 'none';
+            webSerialControls.style.display = currentDataSource === 'webserial' ? 'block' : 'none';
+        }
+
+        // updateButtonStates (Modified for TimeChart, uses hardcoded strings)
+        function updateButtonStates() {
+            const isSimulated = currentDataSource === 'simulated';
+            const isSerial = currentDataSource === 'webserial';
+            // Check main thread's port reference to determine if *connection* is established locally
+            const isSerialConnectedOnMain = isSerial && serialPort !== null;
+            // Can collection start? Only if simulated, or serial mode AND connected locally
+            const canStartCollecting = isSimulated || isSerialConnectedOnMain;
+
+            // Start/Stop Button
+            if (isCollecting) {
+                startStopButton.textContent = "结束采集"; // Hardcoded English
+                startStopButton.disabled = false;
+                startStopButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                startStopButton.classList.add('bg-red-500', 'hover:bg-red-600');
+            } else {
+                startStopButton.textContent = "开始采集"; // Hardcoded English
+                startStopButton.classList.remove('bg-red-500', 'hover:bg-red-600');
+                startStopButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                // Disable start if required source isn't ready (serial must be connected locally first)
+                startStopButton.disabled = (isSerial && !isSerialConnectedOnMain);
+            }
+
+            // Connect/Disconnect Button
+            // Disable if not in serial mode OR if data collection is active
+            connectSerialButton.disabled = !isSerial || isCollecting;
+            if (serialPort) { // If main thread holds the port reference (connected locally)
+                connectSerialButton.textContent = "断开串口"; // Hardcoded English
+                connectSerialButton.classList.replace('bg-blue-500', 'bg-yellow-500');
+                connectSerialButton.classList.replace('hover:bg-blue-600', 'hover:bg-yellow-600');
+            } else { // No port reference on main thread (disconnected or transferred to worker)
+                connectSerialButton.textContent = "连接串口"; // Hardcoded English
+                connectSerialButton.classList.replace('bg-yellow-500', 'bg-blue-500');
+                connectSerialButton.classList.replace('hover:bg-yellow-600', 'hover:bg-blue-600');
+            }
+
+            // Serial Options (Baud rate, parser etc.)
+            // Disable if not in serial mode, OR collecting data, OR connected locally (before transfer)
+            const disableSerialOptions = !isSerial || isCollecting || isSerialConnectedOnMain;
+            serialOptionsDiv.querySelectorAll('select, textarea, button').forEach(el => el.disabled = disableSerialOptions);
+            updateParserButton.disabled = disableSerialOptions; // Explicitly disable update parser button
+
+            // Download/Clear Buttons
+            // Enable based on whether the main dataBuffer (for CSV) has data
+            downloadCsvButton.disabled = dataBuffer.length === 0;
+            // Disable clear if buffer is empty AND no collection ever happened (check latest timestamp)
+            clearDataButton.disabled = dataBuffer.length === 0 && rawLogBuffer.length === 0 && !latestWorkerTimestamp;
+        }
+
+        // updateQuaternionSelectors (Keep origin implementation, uses hardcoded strings)
+        function updateQuaternionSelectors(numChannels) {
+            const defaultOption = `<option value=''>-- Select Channel --</option>`; // Hardcoded English
+            let options = defaultOption;
+            for (let i = 0; i < numChannels; i++) {
+                options += `<option value="${i}">Ch ${i + 1}</option>`; // Hardcoded English prefix
+            }
+
+            // Preserve selection if possible
+            const currentW = quatWSelect.value;
+            const currentX = quatXSelect.value;
+            const currentY = quatYSelect.value;
+            const currentZ = quatZSelect.value;
+
+            quatWSelect.innerHTML = options;
+            quatXSelect.innerHTML = options;
+            quatYSelect.innerHTML = options;
+            quatZSelect.innerHTML = options;
+
+            // Restore selection if the channel index is still valid
+            quatWSelect.value = (currentW !== '' && parseInt(currentW) < numChannels) ? currentW : '';
+            quatXSelect.value = (currentX !== '' && parseInt(currentX) < numChannels) ? currentX : '';
+            quatYSelect.value = (currentY !== '' && parseInt(currentY) < numChannels) ? currentY : '';
+            quatZSelect.value = (currentZ !== '' && parseInt(currentZ) < numChannels) ? currentZ : '';
+
+            updateQuaternionIndices(); // Update internal state and check for errors
+        }
+
+        // updateQuaternionIndices (Keep origin implementation)
+        function updateQuaternionIndices() {
+            const getIndex = (selectElement) => {
+                const val = parseInt(selectElement.value);
+                return isNaN(val) ? null : val; // Return null if not a valid number selected
+            };
+            quaternionChannelIndices.w = getIndex(quatWSelect);
+            quaternionChannelIndices.x = getIndex(quatXSelect);
+            quaternionChannelIndices.y = getIndex(quatYSelect);
+            quaternionChannelIndices.z = getIndex(quatZSelect);
+            // Error overlay is now handled dynamically in processMainThreadQueue based on latest data
+        }
+
+        // toggleFullscreen (Keep origin implementation, uses hardcoded titles)
+        function toggleFullscreen(event) {
+            const button = event.currentTarget;
+            const targetId = button.dataset.target;
+            if (!targetId) return;
+            const moduleElement = document.getElementById(targetId);
+            if (!moduleElement) return;
+
+            // Find the icon element (could be <i> initially, or <svg> after lucide runs)
+            const iconElement = button.querySelector('i[data-lucide], svg.lucide');
+            if (!iconElement) {
+                // If somehow no icon found, log error and exit gracefully
+                console.error("Fullscreen button icon element not found!");
+                return;
+            }
+
+            const isCurrentlyFullscreen = moduleElement.classList.contains('module-fullscreen');
+            let nextIconName = '';
+
+            if (isCurrentlyFullscreen) {
+                // Exit fullscreen
+                moduleElement.classList.remove('module-fullscreen');
+                displayAreaContainer.classList.remove('fullscreen-active');
+                document.body.style.overflow = ''; // Restore body scroll
+                nextIconName = 'maximize';
+                button.title = "Fullscreen/Exit"; // Hardcoded English title
+            } else {
+                // Enter fullscreen
+                // Exit any other fullscreen modules first
+                document.querySelectorAll('.module-fullscreen').forEach(fsMod => {
+                    fsMod.classList.remove('module-fullscreen');
+                    const otherButton = fsMod.querySelector('.header-fullscreen-button');
+                    if (otherButton) {
+                        // Reset other button's icon reliably
+                        otherButton.innerHTML = `<i data-lucide="maximize"></i>`; // Set back to <i> tag
+                        otherButton.title = "Fullscreen/Exit"; // Hardcoded English title
+                        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                            // Let lucide process the new <i> tag inside the other button
+                            lucide.createIcons({ nodes: [otherButton] });
+                        }
+                    }
+                });
+                // Apply fullscreen to the target module
+                moduleElement.classList.add('module-fullscreen');
+                displayAreaContainer.classList.add('fullscreen-active');
+                document.body.style.overflow = 'hidden'; // Prevent body scroll
+                nextIconName = 'minimize';
+                button.title = "Fullscreen/Exit"; // Hardcoded English title (same for both states?)
+            }
+
+            // Update the *clicked* button's icon by replacing its content
+            button.innerHTML = `<i data-lucide="${nextIconName}"></i>`;
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                // Let lucide process the new <i> tag inside the clicked button
+                lucide.createIcons({ nodes: [button] });
+            } else {
+                console.error("Lucide library not available to update icons.");
+            }
+
+            // Trigger resize after a short delay to allow CSS transition
+            setTimeout(() => handleResize(moduleElement), 50);
+        }
+
+
+
+        // --- Resize Handling & Split UI ---
+        // (Functions debounce, handleResize, setupResizeObserver, initializeSplitLayout
+        //  should be correctly implemented as in previous attempts, ensuring split works)
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        function handleResize(resizedModule = null) {
+            console.log("处理窗口大小调整"); // Handling resize
+            // Resize TimeChart
+            if (timeChartInstance) {
+                timeChartInstance.onResize();
+            }
+            // Resize Three.js (Quaternion view)
+            if (threeRenderer) {
+                try {
+                    const container = quaternionViewDiv;
+                    const targetWidth = container.clientWidth;
+                    const targetHeight = container.clientHeight;
+                    if (targetWidth > 0 && targetHeight > 0 && threeRenderer.domElement.isConnected) {
+                        threeCamera.aspect = targetWidth / targetHeight;
+                        threeCamera.updateProjectionMatrix();
+                        threeRenderer.setSize(targetWidth, targetHeight);
+                    }
+                } catch (e) { console.warn("调整 Three.js 大小时出错:", e); } // Error resizing Three.js
+            }
+            // else if (!threeRenderer && ...) { initializeQuaternionView(); } // Ensure quat re-initializes if needed
+        }
+        // setupResizeObserver (Keep origin implementation)
+        function setupResizeObserver() {
+            const debouncedResize = debounce(handleResize, 150); // Debounce resize handling
+
+            const observer = new ResizeObserver(entries => {
+                // We don't need to know which element resized, just call the handler
+                debouncedResize();
+            });
+            // Observe the containers whose size changes affect the charts
+            if (plotModule) observer.observe(plotModule);
+            if (quatModule) observer.observe(quatModule);
+            // Optionally observe the text module if its resize should trigger something, though likely not needed
+            // if (textModule) observer.observe(textModule);
+        }
+
+        // --- Resizable Layout (Split.js) ---
+        // initializeSplitLayout (Keep origin implementation)
+        function initializeSplitLayout() {
+            const plotMinHeight = 150;
+            const bottomMinHeight = 150;
+            const textMinWidth = 150;
+            const quatMinWidth = 150;
+
+            // Destroy existing splits if they exist (e.g., on hot-reload)
+            if (window.verticalSplitInstance) window.verticalSplitInstance.destroy();
+            if (window.horizontalSplitInstance) window.horizontalSplitInstance.destroy();
+
+            try {
+                // Vertical split between plot and bottom row
+                window.verticalSplitInstance = Split(['#plotModule', '#bottomRow'], {
+                    sizes: [65, 35], // Initial size distribution
+                    minSize: [plotMinHeight, bottomMinHeight], // Minimum heights
+                    direction: 'vertical',
+                    gutterSize: 8,
+                    cursor: 'row-resize',
+                    onDragEnd: function (sizes) { handleResize(); } // Trigger resize handler on drag end
+                });
+
+                // Horizontal split within the bottom row
+                window.horizontalSplitInstance = Split(['#textModule', '#quatModule'], {
+                    sizes: [50, 50], // Initial size distribution
+                    minSize: [textMinWidth, quatMinWidth], // Minimum widths
+                    direction: 'horizontal',
+                    gutterSize: 8,
+                    cursor: 'col-resize',
+                    onDragEnd: function (sizes) { handleResize(); } // Trigger resize handler on drag end
+                });
+            } catch (error) {
+                console.error("Failed to initialize Split.js:", error);
+                // Optionally disable split functionality or show error
+            }
+        }
+
+        // --- Status Message Update ---
+        // (Function updateStatusMessage remains the same as previous corrected version)
+        function updateStatusMessage(text = null) {
+            let textToShow = '';
+            if (text) {
+                textToShow = text; // Use the provided text directly
+            } else { // Determine status based on state if no text provided
+                if (isCollecting) { textToShow = "Status: Collecting (Worker)..."; } // Hardcoded English
+                else if (serialPort) { textToShow = "Status: Serial port connected (Ready)"; } // Hardcoded English
+                else { textToShow = "Status: Idle"; } // Hardcoded English
+            }
+            statusMessage.textContent = textToShow;
+        }
+
+        // --- Start the App ---
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+    </script>
+</body>
+
+</html>
