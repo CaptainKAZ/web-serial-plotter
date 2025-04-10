@@ -511,7 +511,7 @@
             <div class="control-section">
                 <h3>数据源</h3> <select id="dataSourceSelect" class="mb-2">
                     <option value="simulated">模拟数据</option>
-                    <option value="webserial">网页串口</option>
+                    <option value="webserial">WebSerial</option>
                     <option value="tcp" disabled>TCP (不可用)</option>
                     <option value="udp" disabled>UDP (不可用)</option>
                 </select>
@@ -537,7 +537,7 @@
             </div>
 
             <div id="webSerialControls" class="control-section" style="display: none;">
-                <h4>网页串口设置</h4>
+                <h4>WebSerial 设置</h4>
                 <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
                 <button id="connectSerialButton" class="w-full">连接串口</button>
                 <div id="serialOptions" class="mt-2">
@@ -1483,7 +1483,7 @@
             // Add estimation string
             if (isCollecting && estimatedBufferTimeRemainingSec !== null && estimatedBufferTimeRemainingSec > 0) {
                 statusText += ` | 预计剩余: ${formatSecondsToHMS(estimatedBufferTimeRemainingSec)}/${formatSecondsToHMS(estimatedBufferTimeSec)}`;
-            } else if (isCollecting && currentDataRateHz > 0 && usagePercent>=99) {
+            } else if (isCollecting && currentDataRateHz > 0 && usagePercent >= 99) {
                 statusText += ` | 缓冲区已满 (存储约 ${formatSecondsToHMS(estimatedBufferTimeSec)})`;
             } else if (isCollecting) {
                 statusText += ` | 预计剩余: 计算中...`;
@@ -2812,39 +2812,47 @@
 
         // --- Resizable Layout (Split.js) ---
         // initializeSplitLayout (Keep origin implementation)
-        function initializeSplitLayout() {
-            const plotMinHeight = 150;
-            const bottomMinHeight = 150;
-            const textMinWidth = 150;
-            const quatMinWidth = 150;
+        /** Initializes the Split.js layout using direct element IDs. */
+        export function initializeSplitLayout(onDragEndCallback) {
+            // Query the actual module elements directly by ID
+            const plotElement = document.getElementById('plotModule');
+            const bottomRowElement = document.getElementById('bottomRow'); // This is already correct
+            const textElement = document.getElementById('textModule');
+            const quatElement = document.getElementById('quatModule');
 
-            // Destroy existing splits if they exist (e.g., on hot-reload)
-            if (window.verticalSplitInstance) window.verticalSplitInstance.destroy();
-            if (window.horizontalSplitInstance) window.horizontalSplitInstance.destroy();
+            // Check if elements were found *before* initializing Split
+            if (!plotElement || !bottomRowElement || !textElement || !quatElement) {
+                console.error("Split.js initialization failed: One or more target elements not found by ID.", { plotElement, bottomRowElement, textElement, quatElement });
+                return;
+            }
+            if (typeof Split === 'undefined') {
+                console.error("Split.js library not loaded.");
+                return;
+            }
+
+            // Destroy existing splits
+            if (verticalSplitInstance) { try { verticalSplitInstance.destroy(); } catch (e) { } }
+            if (horizontalSplitInstance) { try { horizontalSplitInstance.destroy(); } catch (e) { } }
+            verticalSplitInstance = null; horizontalSplitInstance = null;
 
             try {
-                // Vertical split between plot and bottom row
-                window.verticalSplitInstance = Split(['#plotModule', '#bottomRow'], {
-                    sizes: [65, 35], // Initial size distribution
-                    minSize: [plotMinHeight, bottomMinHeight], // Minimum heights
-                    direction: 'vertical',
-                    gutterSize: 8,
-                    cursor: 'row-resize',
-                    onDragEnd: function (sizes) { handleResize(); } // Trigger resize handler on drag end
+                const plotMinHeight = 150; const bottomMinHeight = 150;
+                const textMinWidth = 150; const quatMinWidth = 150;
+
+                // Vertical split using direct element references
+                verticalSplitInstance = Split([plotElement, bottomRowElement], { // <-- Use direct refs
+                    sizes: [65, 35], minSize: [plotMinHeight, bottomMinHeight], direction: 'vertical',
+                    gutterSize: 8, cursor: 'row-resize', onDragEnd: onDragEndCallback
                 });
 
-                // Horizontal split within the bottom row
-                window.horizontalSplitInstance = Split(['#textModule', '#quatModule'], {
-                    sizes: [50, 50], // Initial size distribution
-                    minSize: [textMinWidth, quatMinWidth], // Minimum widths
-                    direction: 'horizontal',
-                    gutterSize: 8,
-                    cursor: 'col-resize',
-                    onDragEnd: function (sizes) { handleResize(); } // Trigger resize handler on drag end
+                // Horizontal split using direct element references
+                horizontalSplitInstance = Split([textElement, quatElement], { // <-- Use direct refs
+                    sizes: [50, 50], minSize: [textMinWidth, quatMinWidth], direction: 'horizontal',
+                    gutterSize: 8, cursor: 'col-resize', onDragEnd: onDragEndCallback
                 });
+                console.log("Split.js layout initialized successfully (using direct element IDs).");
             } catch (error) {
-                console.error("Failed to initialize Split.js:", error);
-                // Optionally disable split functionality or show error
+                console.error("Failed to initialize Split.js (using direct element IDs):", error, { plotElement, bottomRowElement, textElement, quatElement });
             }
         }
 

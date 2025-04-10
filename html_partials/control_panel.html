@@ -1,0 +1,98 @@
+<div class="control-section">
+    <h3>数据源</h3> <select id="dataSourceSelect" class="mb-2">
+        <option value="simulated">模拟数据</option>
+        <option value="webserial">WebSerial</option>
+        <option value="tcp" disabled>TCP (不可用)</option>
+        <option value="udp" disabled>UDP (不可用)</option>
+    </select>
+    <button id="startStopButton" class="w-full mb-2">开始采集</button>
+    <p id="statusMessage" class="text-xs text-gray-500 mt-1">状态：空闲</p>
+    <p id="workerStatusDisplay"></p>
+</div>
+
+<div id="simulatedControls" class="control-section">
+    <h4>模拟设置</h4>
+    <div>
+        <label for="simNumChannels">通道数量:</label> <input type="number" id="simNumChannels" value="4" min="1"
+            max="16" class="mb-2">
+    </div>
+    <div>
+        <label for="simFrequency">频率 (Hz):</label> <input type="number" id="simFrequency" value="1000"
+            min="1" max="2000" class="mb-2">
+    </div>
+    <div>
+        <label for="simAmplitude">幅值:</label> <input type="number" id="simAmplitude" value="1" min="0.1"
+            step="0.1" class="mb-2">
+    </div>
+</div>
+
+<div id="webSerialControls" class="control-section" style="display: none;">
+    <h4>WebSerial 设置</h4>
+    <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
+    <button id="connectSerialButton" class="w-full">连接串口</button>
+    <div id="serialOptions" class="mt-2">
+        <label for="baudRateInput">波特率:</label>
+        <div class="flex gap-2">
+             <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates"
+                value="115200" min="300" max="4000000" step="100">
+            <datalist id="commonBaudRates">
+                <option>9600</option>
+                <option>19200</option>
+                <option>38400</option>
+                <option>57600</option>
+                <option>115200</option>
+                <option>230400</option>
+                <option>460800</option>
+                <option>921600</option>
+            </datalist>
+        </div>
+        <label for="dataBitsSelect">数据位:</label> <select id="dataBitsSelect" class="mb-2">
+            <option value="8" selected>8</option>
+            <option value="7">7</option>
+        </select>
+        <label for="stopBitsSelect">停止位:</label> <select id="stopBitsSelect" class="mb-2">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+        </select>
+        <label for="paritySelect">校验位:</label> <select id="paritySelect" class="mb-2">
+            <option value="none" selected>无</option>
+            <option value="even">偶校验</option>
+            <option value="odd">奇校验</option>
+        </select>
+        <label for="flowControlSelect">流控制:</label> <select id="flowControlSelect" class="mb-2">
+            <option value="none" selected>无</option>
+            <option value="hardware">硬件</option>
+        </select>
+        <label for="serialParser">自定义解析器 (JS 函数体):</label> <textarea id="serialParser" rows="6"
+            placeholder="输入 parseSerialData(rawDataString) 函数体..."></textarea> <button
+            id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
+        <p id="parserStatus" class="parser-status">状态：使用默认解析器。</p>
+        <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
+    </div>
+</div>
+
+<div id="quaternionSettings" class="control-section">
+    <h4>四元数通道选择</h4>
+    <p class="text-xs text-gray-500 mb-2">从可用通道中选择 W, X, Y, Z 通道。</p>
+    <div class="grid grid-cols-2 gap-2">
+        <div> <label for="quatWChannel">W:</label> <select id="quatWChannel"></select> </div>
+        <div> <label for="quatXChannel">X:</label> <select id="quatXChannel"></select> </div>
+        <div> <label for="quatYChannel">Y:</label> <select id="quatYChannel"></select> </div>
+        <div> <label for="quatZChannel">Z:</label> <select id="quatZChannel"></select> </div>
+    </div>
+</div>
+
+<div class="control-section">
+    <h3>数据采集与导出</h3>
+    <div>
+        <label for="bufferDurationInput">最大缓冲点数:</label> <input type="number" id="bufferDurationInput"
+            value="120000" min="1000" max="6000000" class="mb-2"> </div>
+    <label>缓冲使用情况:</label>
+    <div class="progress-bar-container mb-2">
+        <div id="bufferUsageBar" class="progress-bar"></div>
+    </div>
+    <p id="bufferStatus" class="text-xs text-gray-500 mb-3">缓冲: 0 / 120000 点</p> <div class="flex flex-col gap-y-3 mt-1">
+        <button id="downloadCsvButton" class="w-full">下载 CSV</button> <button id="clearDataButton"
+            class="w-full bg-red-500 hover:bg-red-600">清除图表和缓冲</button>
+    </div>
+</div>
