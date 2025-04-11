@@ -326,10 +326,12 @@ export function updateConfig(newConfig) {
     }
 }
 
-export function clear() { /* ... unchanged ... */
+export function clear() {
     if (!isInitialized) return;
     if (threeObject && lastValidQuaternion) { lastValidQuaternion.identity(); threeObject.setRotationFromQuaternion(lastValidQuaternion); }
     threeOrbitControls?.reset(); if (quatDataErrorOverlayElement) quatDataErrorOverlayElement.style.display = 'none';
+    internalConfig.selectedChannels = { w: null, x: null, y: null, z: null };
+    handleShowSelectorOverlay();
 }
 
 export function destroy() {
