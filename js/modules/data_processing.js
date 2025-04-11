@@ -188,7 +188,7 @@ export function downloadCSV(chartSeriesRef = null) {
                 }
                 rows.push(rowValues.join(','));
             }
-            resolve(rows.join('')); // Join without extra newline between rows
+            resolve(rows.join('\n'));
         } catch (error) {
             reject(error);
         }

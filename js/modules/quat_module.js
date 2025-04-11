@@ -32,9 +32,36 @@ let internalConfig = {
 };
 
 // --- Internal Helpers ---
-function updateQuaternionViewInternal(w, x, y, z) { /* ... */ }
-function animateQuaternion() { /* ... */ }
-function setupScene() { /* ... */ }
+function updateQuaternionViewInternal(w, x, y, z) {
+    if (!threeObject || !lastValidQuaternion) return;
+    lastValidQuaternion.set(x, y, z, w).normalize();
+    threeObject.setRotationFromQuaternion(lastValidQuaternion);
+}
+
+function animateQuaternion() {
+    if (!isInitialized) return;
+    quatAnimationRequest = requestAnimationFrame(animateQuaternion);
+    if (!threeRenderer || !threeScene || !threeCamera) return;
+    threeOrbitControls?.update();
+    threeRenderer.render(threeScene, threeCamera);
+}
+
+function setupScene() {
+    threeScene = new THREE.Scene();
+    threeScene.background = new THREE.Color(0xe5e7eb);
+    const geometry = new THREE.BoxGeometry(0.8, 1.2, 0.4);
+    const materials = [ /* ... 6 materials ... */
+        new THREE.MeshStandardMaterial({ color: 0xff0000, name: 'X+' }), new THREE.MeshStandardMaterial({ color: 0xffa500, name: 'X-' }),
+        new THREE.MeshStandardMaterial({ color: 0x00ff00, name: 'Y+' }), new THREE.MeshStandardMaterial({ color: 0x0000ff, name: 'Y-' }),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, name: 'Z+' }), new THREE.MeshStandardMaterial({ color: 0x808080, name: 'Z-' })
+    ];
+    threeObject = new THREE.Mesh(geometry, materials);
+    threeScene.add(threeObject);
+    threeAxesHelper = new THREE.AxesHelper(1.5);
+    threeScene.add(threeAxesHelper);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); threeScene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); directionalLight.position.set(1, 2, 1.5).normalize(); threeScene.add(directionalLight);
+}
 
 // --- Internal Helpers (Modified/New) ---
 

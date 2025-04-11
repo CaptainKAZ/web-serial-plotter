@@ -383,15 +383,15 @@ body {
 }
 
 /* --- General Control Styles (Buttons, Inputs, Labels, etc.) --- */
-button {
+#control-panel button {
     padding: 0.5rem 1rem; border-radius: 0.375rem; background-color: #3b82f6;
     color: white; font-weight: 500; transition: background-color 0.2s;
     border: none; cursor: pointer;
 }
-button:hover { background-color: #2563eb; }
-button:disabled { background-color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+#control-panel button:hover { background-color: #2563eb; }
+#control-panel button:disabled { background-color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
 
-input[type="number"], input[type="text"], select, textarea {
+#control-panel input[type="number"], #control-panel input[type="text"], #control-panel select, #control-panel textarea {
     border: 1px solid #d1d5db;
     border-radius: 0.375rem;
     padding: 0.5rem;
@@ -401,18 +401,18 @@ input[type="number"], input[type="text"], select, textarea {
     padding-left: 0.75rem;
 }
 
-select {
+#control-panel select {
     padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;
     -webkit-appearance: none; -moz-appearance: none; appearance: none;
 }
 
-label {
+#control-panel label {
     display: block; margin-bottom: 0.25rem; font-size: 0.875rem;
     font-weight: 500; color: #374151;
 }
 
-.control-section { /* Sections within Control Panel */
+#control-panel .control-section { /* Sections within Control Panel */
     border: 1px solid #e5e7eb; border-radius: 0.375rem;
     padding: 0.75rem; margin-bottom: 1rem;
 }

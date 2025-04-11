@@ -9,7 +9,7 @@ let followToggleElement = null;
 let dataRateDisplayElement = null;
 let customInteractionPluginInstance = null;
 let isInitialized = false;
-
+let moduleElementId = null; // Store the ID of the container element
 let internalConfig = {
     follow: true,
     numChannels: DEFAULT_SIM_CHANNELS, // Tracks the *expected* number of channels
@@ -103,8 +103,8 @@ class CustomInteractionPlugin {
         this.chart.options.yRange = "auto";
         this.updateFollowStateCallback(true);
         if (this.isPanning) {
-             this.isPanning = false; this.eventEl.style.cursor = '';
-             try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { }
+            this.isPanning = false; this.eventEl.style.cursor = '';
+            try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { }
         }
         this.chart.update();
     }
@@ -148,7 +148,7 @@ class CustomInteractionPlugin {
         if (!event.isPrimary || !this.chart) return;
         if (this.isPanning) {
             this.isPanning = false; this.eventEl.style.cursor = '';
-             try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { }
+            try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { }
             this._checkAutoFollow();
         }
     }
@@ -201,10 +201,10 @@ function updateDataRateDisplay() {
 }
 
 function setInternalFollowState(newFollowState) {
-     if (internalConfig.follow !== newFollowState) {
-         internalConfig.follow = newFollowState;
-         if(followToggleElement) followToggleElement.checked = newFollowState;
-     }
+    if (internalConfig.follow !== newFollowState) {
+        internalConfig.follow = newFollowState;
+        if (followToggleElement) followToggleElement.checked = newFollowState;
+    }
 }
 
 // --- Display Module Interface Implementation ---
@@ -220,6 +220,7 @@ export function create(elementId, initialState = {}) {
     if (typeof window.TimeChart === 'undefined') { console.error("TimeChart library not loaded!"); return false; }
 
     internalConfig = { ...internalConfig, ...initialState };
+    moduleElementId = elementId;
     lastRateCheckTime = performance.now();
     dataPointCounter = 0;
     currentDataRateHz = 0;
@@ -285,9 +286,9 @@ export function processDataBatch(batch) {
 
     // First pass: Check max channels needed and add new series if required
     for (const item of batch) {
-         if (item && Array.isArray(item.values)) {
-             maxChannelsSeenInBatch = Math.max(maxChannelsSeenInBatch, item.values.length);
-         }
+        if (item && Array.isArray(item.values)) {
+            maxChannelsSeenInBatch = Math.max(maxChannelsSeenInBatch, item.values.length);
+        }
     }
 
     // Add new series if maxChannelsSeenInBatch > current series count
@@ -312,21 +313,21 @@ export function processDataBatch(batch) {
 
     // Second pass: Add data points
     for (const item of batch) {
-         if (!item || typeof item.timestamp !== 'number' || !Array.isArray(item.values)) continue;
-         const { timestamp, values } = item;
-         if (timestamp > latestTimestamp) latestTimestamp = timestamp;
+        if (!item || typeof item.timestamp !== 'number' || !Array.isArray(item.values)) continue;
+        const { timestamp, values } = item;
+        if (timestamp > latestTimestamp) latestTimestamp = timestamp;
 
-         // Now iterate up to the potentially increased series length
-         for (let i = 0; i < Math.min(values.length, series.length); i++) { // Use current series.length
-             if (series[i]?.data) {
-                 const seriesData = series[i].data;
-                 const yValue = (typeof values[i] === 'number' && isFinite(values[i])) ? values[i] : NaN;
-                  if (seriesData.length === 0 || timestamp >= seriesData[seriesData.length - 1].x) {
-                      seriesData.push({ x: timestamp, y: yValue });
-                      pointsAdded++;
-                  }
-             }
-         }
+        // Now iterate up to the potentially increased series length
+        for (let i = 0; i < Math.min(values.length, series.length); i++) { // Use current series.length
+            if (series[i]?.data) {
+                const seriesData = series[i].data;
+                const yValue = (typeof values[i] === 'number' && isFinite(values[i])) ? values[i] : NaN;
+                if (seriesData.length === 0 || timestamp >= seriesData[seriesData.length - 1].x) {
+                    seriesData.push({ x: timestamp, y: yValue });
+                    pointsAdded++;
+                }
+            }
+        }
     }
 
     dataPointCounter += batch.length;
@@ -356,10 +357,10 @@ export function processDataBatch(batch) {
         updateDataRateDisplay();
     } else if (performance.now() - lastRateCheckTime > 2000 && pointsAdded === 0 && !needsSeriesUpdate) {
         if (currentDataRateHz !== 0) {
-             currentDataRateHz = 0;
-             dataPointCounter = 0;
-             lastRateCheckTime = performance.now();
-             updateDataRateDisplay();
+            currentDataRateHz = 0;
+            dataPointCounter = 0;
+            lastRateCheckTime = performance.now();
+            updateDataRateDisplay();
         }
     }
 }
@@ -416,24 +417,23 @@ export function updateConfig(newConfig) {
 }
 
 export function clear() {
-    if (!isInitialized) return;
-    if (chartInstance?.options?.series) {
-        chartInstance.options.series.forEach(s => s.data = []);
-        // Resetting number of series might be needed if dynamic addition occurred
-        // Keep only the expected number based on config? Or clear all? Let's clear all for simplicity.
-        // chartInstance.options.series.length = internalConfig.numChannels; // Might cause issues? Safer to clear and let processDataBatch recreate.
+    console.log("Clearing Plot Module (via Destroy & Recreate)...");
+    const currentConfigSnapshot = { ...internalConfig };
+    const currentElementId = moduleElementId;
 
-        const now = performance.now();
-        chartInstance.options.xRange = { min: now - 10000, max: now };
-        chartInstance.options.yRange = 'auto';
-        chartInstance.update();
+    destroy();
+
+    if (currentElementId) {
+        create(currentElementId, currentConfigSnapshot);
+    } else {
+        console.error("Cannot re-create plot module: Element ID was not stored.");
     }
+
     dataPointCounter = 0;
     lastRateCheckTime = performance.now();
     currentDataRateHz = 0;
     updateDataRateDisplay();
 }
-
 export function destroy() {
     if (!isInitialized) return;
     if (followToggleElement && handleInternalFollowChange) {

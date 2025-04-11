@@ -272,9 +272,17 @@ function handleDownloadCsv() {
 
 function handleClearData() {
     if (appState.isCollecting) stopDataCollection();
-    displayModules.forEach(module => { try { module.clear(); } catch(e){ console.warn("Error clearing module", e); }});
-    dataProcessor.clearBuffer(); dataProcessor.resetEstimatesAndRate();
+    displayModules.forEach(module => { try { 
+        console.log("Clearing module", module);
+        module.clear(); 
+    } catch(e){ console.warn("Error clearing module", e); }});
+    console.log("Clearing data processor...");
+    dataProcessor.clearBuffer();
+    console.log("Clearing estimate...");
+    dataProcessor.resetEstimatesAndRate();
+    console.log("Clearing UI...");
     updateBufferStatusUI(0, appState.config.maxBufferPoints, false, null, null);
+    console.log("Clearing status...");
     updateButtonStatesMain();
 }
 
