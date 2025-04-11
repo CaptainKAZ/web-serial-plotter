@@ -1,8 +1,35 @@
-<div id="quatModule" class="module-container quaternion-container"> <div class="module-header">
-    <h3>四元数姿态显示</h3>
-    <div class="module-controls">
+<div id="quatModuleContainer" class="module-container quaternion-container">
+    <div class="module-header">
+        <h3>四元数姿态显示</h3>
+        <div class="module-controls">
+            <button id="quatReSelectBtn" class="quat-control-button" title="重新选择通道" style="display: none;"> <svg
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="lucide lucide-settings-2">
+                    <path d="M20 7h-9" />
+                    <path d="M14 17H5" />
+                    <circle cx="17" cy="17" r="3" />
+                    <circle cx="7" cy="7" r="3" />
+                </svg>
+            </button>
+        </div>
     </div>
-</div>
-<div id="quaternionView"> <div id="quaternionErrorOverlay">确保选择了 4 个唯一的通道 (W, X, Y, Z) 并且数据源提供了足够的通道。</div>
-</div>
+
+    <div id="quaternionView" class="quat-view-area">
+        <div id="quatDataErrorOverlay" class="quat-error-overlay" style="display: none;">无效数据</div>
+    </div>
+
+    <div id="quatChannelSelectorOverlay" class="quat-selector-overlay">
+        <h4>选择四元数通道</h4>
+        <p class="text-xs text-gray-600 mb-3">请为 W, X, Y, Z 分配唯一的可用通道。</p>
+        <div class="quat-selector-grid">
+            <div> <label for="quatWChannelInternal">W:</label> <select id="quatWChannelInternal"></select> </div>
+            <div> <label for="quatXChannelInternal">X:</label> <select id="quatXChannelInternal"></select> </div>
+            <div> <label for="quatYChannelInternal">Y:</label> <select id="quatYChannelInternal"></select> </div>
+            <div> <label for="quatZChannelInternal">Z:</label> <select id="quatZChannelInternal"></select> </div>
+        </div>
+        <p id="quatSelectorError" class="quat-selector-error-message" style="display: none;"></p>
+        <button id="quatConfirmSelectionBtn" class="quat-confirm-button" disabled>确认选择</button>
+    </div>
+
 </div>

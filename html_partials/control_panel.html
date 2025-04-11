@@ -64,21 +64,10 @@
             <option value="hardware">硬件</option>
         </select>
         <label for="serialParser">自定义解析器 (JS 函数体):</label> <textarea id="serialParser" rows="6"
-            placeholder="输入 parseSerialData(rawDataString) 函数体..."></textarea> <button
+            placeholder="输入 parseSerialData(uint8ArrayData) 函数体..."></textarea> <button
             id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
         <p id="parserStatus" class="parser-status">状态：使用默认解析器。</p>
         <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
-    </div>
-</div>
-
-<div id="quaternionSettings" class="control-section">
-    <h4>四元数通道选择</h4>
-    <p class="text-xs text-gray-500 mb-2">从可用通道中选择 W, X, Y, Z 通道。</p>
-    <div class="grid grid-cols-2 gap-2">
-        <div> <label for="quatWChannel">W:</label> <select id="quatWChannel"></select> </div>
-        <div> <label for="quatXChannel">X:</label> <select id="quatXChannel"></select> </div>
-        <div> <label for="quatYChannel">Y:</label> <select id="quatYChannel"></select> </div>
-        <div> <label for="quatZChannel">Z:</label> <select id="quatZChannel"></select> </div>
     </div>
 </div>
 
