@@ -1,8 +1,6 @@
 // js/modules/data_processing.js (Complete, Revised for xterm.js)
 
 import {
-    // Import necessary constants
-    MAX_RAW_LOG_BUFFER_LINES, // Still potentially useful for xterm scrollback? Or remove if unused.
     DEFAULT_MAX_BUFFER_POINTS,
     ESTIMATION_UPDATE_INTERVAL_MS
 } from '../config.js';

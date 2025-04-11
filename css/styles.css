@@ -5,17 +5,22 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     height: 100%;
     margin: 0;
-    overflow: hidden; /* Prevent body scrollbars */
-    font-family: 'Inter', sans-serif; /* Base font */
-    background-color: #f3f4f6; /* Default background */
+    overflow: hidden;
+    /* Prevent body scrollbars */
+    font-family: 'Inter', sans-serif;
+    /* Base font */
+    background-color: #f3f4f6;
+    /* Default background */
     overflow-x: hidden;
 }
 
 body {
-    display: flex; /* Use flex for overall layout if needed */
+    display: flex;
+    /* Use flex for overall layout if needed */
     position: relative;
 }
 
@@ -26,14 +31,18 @@ body {
     height: 100%;
     padding: 1rem;
     gap: 1rem;
-    overflow: hidden; /* 确保内容不会溢出 main-container */
-    width: 100%; /* 明确宽度 */
+    overflow: hidden;
+    /* 确保内容不会溢出 main-container */
+    width: 100%;
+    /* 明确宽度 */
 }
 
 .control-panel {
-    width: 350px; /* Fixed width for control panel */
+    width: 350px;
+    /* Fixed width for control panel */
     min-width: 250px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
+    /* Prevent shrinking */
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -41,13 +50,15 @@ body {
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    overflow-y: auto; /* Allow scrolling if content exceeds height */
+    overflow-y: auto;
+    /* Allow scrolling if content exceeds height */
 }
 
 .display-area-container {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Allow display area to take remaining width */
+    flex: 1;
+    /* Allow display area to take remaining width */
     min-width: 300px;
     overflow: hidden;
 }
@@ -55,11 +66,13 @@ body {
 .display-area {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Allow inner display area to fill its container */
+    flex: 1;
+    /* Allow inner display area to fill its container */
     overflow: hidden;
     width: 100%;
     height: 100%;
-    position: relative; /* Add positioning context */
+    position: relative;
+    /* Add positioning context */
 }
 
 /* --- Placeholders & Split Targets Layout --- */
@@ -68,36 +81,51 @@ body {
 #bottomRow {
     display: flex;
     flex-direction: row;
-    flex: 1 1 35%; /* Default size basis */
+    flex: 1 1 35%;
+    /* Default size basis */
     min-height: 150px;
     overflow: hidden;
-    position: relative; /* Add positioning context */
+    position: relative;
+    /* Add positioning context */
 }
+
 #text-module-placeholder,
 #quaternion-module-placeholder {
-     display: flex; /* Use flex */
-     position: relative;
-     overflow: hidden;
+    display: flex;
+    /* Use flex */
+    position: relative;
+    overflow: hidden;
 }
 
 
 /* Vertical Split Targets Sizing */
 #plot-module-placeholder {
-    flex: 1 1 65%; /* Default size basis, allow shrink/grow */
-    min-height: 150px; /* Minimum height */
-    flex-direction: column; /* Assume content inside flows top-down */
+    flex: 1 1 65%;
+    /* Default size basis, allow shrink/grow */
+    min-height: 150px;
+    /* Minimum height */
+    flex-direction: column;
+    /* Assume content inside flows top-down */
 }
+
 #bottomRow {
-    flex: 1 1 35%; /* Default size basis, allow shrink/grow */
-    min-height: 150px; /* Minimum height */
-    flex-direction: row; /* Children (text/quat placeholders) side-by-side */
+    flex: 1 1 35%;
+    /* Default size basis, allow shrink/grow */
+    min-height: 150px;
+    /* Minimum height */
+    flex-direction: row;
+    /* Children (text/quat placeholders) side-by-side */
 }
+
 /* Horizontal Split Targets Sizing */
 #text-module-placeholder,
 #quaternion-module-placeholder {
-     flex: 1 1 50%; /* Default size basis, allow shrink/grow */
-     min-width: 150px; /* Minimum width */
-     flex-direction: column; /* Assume content inside flows top-down */
+    flex: 1 1 50%;
+    /* Default size basis, allow shrink/grow */
+    min-width: 150px;
+    /* Minimum width */
+    flex-direction: column;
+    /* Assume content inside flows top-down */
 }
 
 
@@ -106,14 +134,19 @@ body {
     background-color: #e5e7eb;
     background-repeat: no-repeat;
     background-position: 50%;
-    z-index: 20; /* Ensure gutter is clickable */
+    z-index: 20;
+    /* Ensure gutter is clickable */
 }
-.gutter.gutter-horizontal { /* Between text/quat */
+
+.gutter.gutter-horizontal {
+    /* Between text/quat */
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeAAPRUQBx75IwAAAAAElFTkSuQmCC');
     cursor: col-resize;
     height: 100%;
 }
-.gutter.gutter-vertical { /* Between plot/bottomRow */
+
+.gutter.gutter-vertical {
+    /* Between plot/bottomRow */
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
     cursor: row-resize;
     width: 100%;
@@ -122,16 +155,20 @@ body {
 /* --- Module Styling (Container, Header, Controls) --- */
 /* Style applies to the #plotModule, #textModule, #quatModule divs loaded inside placeholders */
 .module-container {
-    width: 100%; /* Fill placeholder width */
-    height: 100%; /* Fill placeholder height */
+    width: 100%;
+    /* Fill placeholder width */
+    height: 100%;
+    /* Fill placeholder height */
     display: flex;
     flex-direction: column;
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     padding: 0.5rem;
-    overflow: hidden; /* Contains content */
-    position: relative; /* For absolutely positioned children like FPS */
+    overflow: hidden;
+    /* Contains content */
+    position: relative;
+    /* For absolutely positioned children like FPS */
 }
 
 .module-header {
@@ -143,14 +180,17 @@ body {
     padding-left: 0.2rem;
     padding-bottom: 0.1rem;
     border-bottom: 1px solid #e5e7eb;
-    flex-shrink: 0; /* Prevent header from shrinking */
+    flex-shrink: 0;
+    /* Prevent header from shrinking */
     flex-wrap: wrap;
     gap: 0.75rem;
 }
 
 .module-header h3 {
-    margin: 0 0 0 0; /* Reset margin */
-    margin-right: auto; /* Push controls right */
+    margin: 0 0 0 0;
+    /* Reset margin */
+    margin-right: auto;
+    /* Push controls right */
     padding-bottom: 0;
     font-size: 1.125rem;
     font-weight: 600;
@@ -165,34 +205,12 @@ body {
     flex-wrap: wrap;
 }
 
-.header-fullscreen-button {
-    background: none;
-    border: none;
-    padding: 0.25rem;
-    color: #6b7280;
-    cursor: pointer;
-    line-height: 0;
-    border-radius: 0.25rem;
-}
-.header-fullscreen-button:hover {
-    background-color: #f3f4f6;
-    color: #1f2937;
-}
-.header-fullscreen-button svg { /* Lucide icon style */
-    width: 1rem;
-    height: 1rem;
-    stroke-width: 2.5;
-}
-.header-fullscreen-button i { /* Fallback icon style */
-    display: inline-block;
-    width: 1rem;
-    height: 1rem;
-}
-
-.data-format-controls { /* STR/HEX buttons */
+.data-format-controls {
+    /* STR/HEX buttons */
     display: flex;
     gap: 0.25rem;
 }
+
 .data-format-controls button {
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
@@ -202,6 +220,7 @@ body {
     border-radius: 0.25rem;
     cursor: pointer;
 }
+
 .data-format-controls button.active {
     background-color: #dbeafe;
     border-color: #93c5fd;
@@ -210,43 +229,80 @@ body {
 }
 
 /* --- Specific Module Content Styling --- */
+#dataRateDisplay {
+    position: absolute;
+    /* 改为绝对定位 */
+    left: 50%;
+    /* 左边缘移到中心 */
+    transform: translateX(-50%);
+    /* 向左移动自身宽度的一半，实现水平居中 */
+    /* align-items: center (父元素) 会处理垂直居中, 无需 top/translateY */
+    white-space: nowrap;
+    /* 防止文本换行 */
+    /* 保留基础样式 */
+    font-size: 0.875rem;
+    color: #4b5563;
+}
 
 /* Plot Module */
-.plot-container .plot-content { /* The div holding the #lineChart */
-    flex-grow: 1; /* Allow content div to fill space */
-    min-height: 0; /* Crucial for flex-grow in column */
+.plot-container .plot-content {
+    /* The div holding the #lineChart */
+    flex-grow: 1;
+    /* Allow content div to fill space */
+    min-height: 0;
+    /* Crucial for flex-grow in column */
     width: 100%;
     height: 100%;
 }
-.plot-container #lineChart { /* TimeChart target */
+
+.plot-container #lineChart {
+    /* TimeChart target */
     width: 100%;
     height: 100%;
 }
 
 /* Text Module */
 #parsedDataDisplay {
-    display: flex; flex-wrap: wrap; gap: 0.5rem;
-    font-family: monospace; font-size: 0.875rem;
-    padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;
-    background-color: #f9fafb; margin-bottom: 0.5rem; min-height: 3rem;
-    align-items: center; flex-shrink: 0; overflow-y: auto; max-height: 100px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background-color: #f9fafb;
+    margin-bottom: 0.5rem;
+    min-height: 3rem;
+    align-items: center;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 100px;
 }
+
 #parsedDataDisplay .channel-value {
-    background-color: #e5e7eb; padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem; white-space: nowrap;
+    background-color: #e5e7eb;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
 }
+
 #parsedDataDisplay .channel-label {
-    font-size: 0.75rem; color: #6b7280; margin-right: 0.125rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-right: 0.125rem;
 }
+
 /* Style for the xterm container div */
 .terminal-container {
     flex-grow: 1;
     width: 100%;
     height: 100%;
     min-height: 50px;
-    padding: 0;
+    padding: .25rem;
     border-radius: 0.375rem;
-    overflow: hidden; /* Keep this */
+    overflow: hidden;
+    /* Keep this */
 }
 
 .terminal-container .xterm .xterm-viewport {
@@ -255,136 +311,255 @@ body {
 }
 
 /* Quaternion Module */
-.quaternion-container #quaternionView { /* Three.js target */
-    flex-grow: 1; /* Fill available space */
+.quaternion-container #quaternionView {
+    /* Three.js target */
+    flex-grow: 1;
+    /* Fill available space */
     min-height: 0;
-    background-color: #e5e7eb; border-radius: 0.375rem;
-    position: relative; width: 100%; height: 100%;
-    overflow: hidden; cursor: grab;
+    background-color: #e5e7eb;
+    border-radius: 0.375rem;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
 }
-.quaternion-container #quaternionView:active { cursor: grabbing; }
+
+.quaternion-container #quaternionView:active {
+    cursor: grabbing;
+}
 
 #quaternionErrorOverlay {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: flex; justify-content: center; align-items: center;
-    background-color: rgba(229, 231, 235, 0.8); color: #4b5563;
-    text-align: center; padding: 1rem; border-radius: 0.375rem;
-    z-index: 5; display: none; pointer-events: none;
-}
-#quatFpsDisplay { /* Quaternion FPS display */
-    position: absolute; top: 0.5rem; left: 0.5rem;
-    background-color: rgba(0, 0, 0, 0.5); color: white; font-size: 0.75rem;
-    padding: 0.125rem 0.375rem; border-radius: 0.25rem; z-index: 10;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(229, 231, 235, 0.8);
+    color: #4b5563;
+    text-align: center;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    z-index: 5;
+    display: none;
+    pointer-events: none;
 }
 
 /* --- Fullscreen Mode --- */
 /* Hides non-fullscreen placeholders/rows */
-.display-area-container.fullscreen-active > *:not(.module-fullscreen) {
+.display-area-container.fullscreen-active>*:not(.module-fullscreen) {
     display: none !important;
 }
+
 /* Specifically target placeholders if modules are direct children of display-area */
-.display-area-container.fullscreen-active > #plot-module-placeholder:not(:has(> .module-fullscreen)),
-.display-area-container.fullscreen-active > #bottomRow:not(:has(> .module-fullscreen))
-{
-     display: none !important;
-}
-/* Hide siblings within bottomRow */
-#bottomRow > #text-module-placeholder:not(:has(> .module-fullscreen)),
-#bottomRow > #quaternion-module-placeholder:not(:has(> .module-fullscreen))
-{
-     /* This might require adjusting if only one child is fullscreen */
-     /* Consider applying a class to the non-fullscreen sibling instead */
+.display-area-container.fullscreen-active>#plot-module-placeholder:not(:has(> .module-fullscreen)),
+.display-area-container.fullscreen-active>#bottomRow:not(:has(> .module-fullscreen)) {
+    display: none !important;
 }
 
 
-.module-fullscreen { /* Applied to the .module-container div when fullscreen */
-    position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
-    width: 100vw !important; height: 100vh !important; margin: 0 !important;
-    padding: 1rem !important; z-index: 50 !important; overflow: hidden !important;
+.module-fullscreen {
+    /* Applied to the .module-container div when fullscreen */
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+    z-index: 50 !important;
+    overflow: hidden !important;
     border-radius: 0 !important;
 }
 
 /* --- General Control Styles (Buttons, Inputs, Labels, etc.) --- */
 button {
-    padding: 0.5rem 1rem; border-radius: 0.375rem; background-color: #3b82f6;
-    color: white; font-weight: 500; transition: background-color 0.2s;
-    border: none; cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    background-color: #3b82f6;
+    color: white;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
 }
-button:hover { background-color: #2563eb; }
-button:disabled { background-color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
 
-input[type="number"], input[type="text"], select, textarea {
-    border: 1px solid #d1d5db; border-radius: 0.375rem;
-    padding: 0.5rem; width: 100%; font-size: 1rem;
+button:hover {
+    background-color: #2563eb;
 }
-/* Add arrow for select */
+
+button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+input[type="number"],
+input[type="text"],
+select,
+textarea {
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    width: 100%;
+    font-size: 1rem;
+}
+
+input[type="number"],
+input[type="text"],
+select,
+textarea {
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    width: 100%;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    padding-left: 0.75rem;
+}
+
 select {
-    padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-    background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;
-    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
 label {
-    display: block; margin-bottom: 0.25rem; font-size: 0.875rem;
-    font-weight: 500; color: #374151;
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
 }
 
-.control-section { /* Sections within Control Panel */
-    border: 1px solid #e5e7eb; border-radius: 0.375rem;
-    padding: 0.75rem; margin-bottom: 1rem;
+.control-section {
+    /* Sections within Control Panel */
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
 }
-.control-section:last-child { margin-bottom: 0; }
+
+.control-section:last-child {
+    margin-bottom: 0;
+}
 
 .parser-status {
-    font-size: 0.75rem; margin-top: 0.25rem; color: #6b7280; font-style: italic;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    color: #6b7280;
+    font-style: italic;
 }
+
 /* Define color classes directly */
-.parser-status.text-green-600 { color: #059669 !important; }
-.parser-status.text-red-600 { color: #dc2626 !important; }
+.parser-status.text-green-600 {
+    color: #059669 !important;
+}
+
+.parser-status.text-red-600 {
+    color: #dc2626 !important;
+}
 
 /* Control Panel Headings */
 .control-panel h3 {
-    font-size: 1.25rem; font-weight: 600; margin: 0 0 0.75rem 0;
-    color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.5rem;
 }
+
 .control-panel h4 {
-    font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
     color: #374151;
 }
 
 /* Progress Bar */
 .progress-bar-container {
-    width: 100%; background-color: #e5e7eb; border-radius: 0.375rem;
-    overflow: hidden; height: 0.5rem;
+    width: 100%;
+    background-color: #e5e7eb;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    height: 0.5rem;
 }
+
 .progress-bar {
-    background-color: #3b82f6; height: 100%; width: 0%;
+    background-color: #3b82f6;
+    height: 100%;
+    width: 0%;
     transition: width 0.2s ease-out;
 }
 
 /* Toggle Switch */
 .toggle-switch {
-    display: inline-flex; align-items: center; cursor: pointer; vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    vertical-align: middle;
 }
-.toggle-switch input { display: none; }
+
+.toggle-switch input {
+    display: none;
+}
+
 .toggle-switch .slider {
-    width: 34px; height: 20px; background-color: #ccc; border-radius: 10px;
-    position: relative; transition: background-color 0.2s;
+    width: 34px;
+    height: 20px;
+    background-color: #ccc;
+    border-radius: 10px;
+    position: relative;
+    transition: background-color 0.2s;
 }
+
 .toggle-switch .slider::before {
-    content: ""; position: absolute; width: 16px; height: 16px;
-    border-radius: 50%; background-color: white; left: 2px; top: 2px;
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: white;
+    left: 2px;
+    top: 2px;
     transition: transform 0.2s;
 }
-.toggle-switch input:checked + .slider { background-color: #3b82f6; }
-.toggle-switch input:checked + .slider::before { transform: translateX(14px); }
+
+.toggle-switch input:checked+.slider {
+    background-color: #3b82f6;
+}
+
+.toggle-switch input:checked+.slider::before {
+    transform: translateX(14px);
+}
+
 .toggle-switch-label {
-    margin-left: 0.5rem; font-size: 0.875rem; color: #374151; user-select: none;
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+    user-select: none;
 }
 
 /* Worker Status Display */
 #workerStatusDisplay {
-    font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem; padding: 0.25rem 0.5rem;
-    background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.25rem;
-    display: none; /* Hidden by default */
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    display: none;
+    /* Hidden by default */
 }

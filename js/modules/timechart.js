@@ -204,7 +204,6 @@ export function initializeTimeChart(targetElement, numChannels, initialFollowSta
             realTime: initialFollowState,
             // Padding options likely still work
             renderPaddingLeft: 45, renderPaddingRight: 10, renderPaddingTop: 10, renderPaddingBottom: 20,
-            legend: { visible: true }, // Legend likely enabled by default, but explicit is ok
             plugins: { // Explicitly add necessary plugins, excluding default zoom
                 lineChart: TimeChart.plugins.lineChart,
                 d3Axis: TimeChart.plugins.d3Axis,
@@ -222,7 +221,7 @@ export function initializeTimeChart(targetElement, numChannels, initialFollowSta
                 nearestPoint: TimeChart.plugins.nearestPoint, // Keep nearest point for tooltip
                 crosshair: TimeChart.plugins.crosshair,       // Keep crosshair if desired
                 // Add our custom interaction plugin instance
-                customInteraction: new CustomInteractionPlugin()
+                customInteraction: new CustomInteractionPlugin({onFollowStateChange: onFollowStateChange, shouldEnableFollowCheck: shouldEnableFollowCheck})
             }
         });
         console.log("TimeChart instance created successfully using main constructor.");
