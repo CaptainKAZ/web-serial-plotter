@@ -72,7 +72,7 @@ function updateBufferStatusUI(currentPoints, maxPoints, collecting, estimateRema
             else { statusText += `<br /> 预计剩余: ${formatSecondsToHMS(estimateRemainingSec)} / ${formatSecondsToHMS(estimateTotalSec)}`; }
         } else { statusText += `<br /> 预计剩余: 计算中...`; }
     }
-    bufferStatusEl.innerHTML  = statusText;
+    bufferStatusEl.innerHTML = statusText;
 }
 
 /**

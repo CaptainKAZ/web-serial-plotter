@@ -13,7 +13,7 @@ class CustomInteractionPlugin {
     shouldEnableFollow = () => true;
 
     constructor(options = {}) {
-        this.updateFollowStateCallback = options.onFollowStateChange || function(){};
+        this.updateFollowStateCallback = options.onFollowStateChange || function () { };
         this.shouldEnableFollow = options.shouldEnableFollow || (() => true);
     }
 
@@ -35,8 +35,8 @@ class CustomInteractionPlugin {
         this.eventEl.addEventListener('pointercancel', this.onPointerCancel); this.eventEl.addEventListener('dblclick', this.onDoubleClick);
         // Cleanup
         chartInstance.model.disposing.on(() => {
-             if (!this.eventEl) return; console.log("Removing custom interaction listeners...");
-             this.eventEl.removeEventListener('wheel', this.onWheel); this.eventEl.removeEventListener('pointerdown', this.onPointerDown); this.eventEl.removeEventListener('pointermove', this.onPointerMove); this.eventEl.removeEventListener('pointerup', this.onPointerUp); this.eventEl.removeEventListener('pointerleave', this.onPointerLeave); this.eventEl.removeEventListener('pointercancel', this.onPointerCancel); this.eventEl.removeEventListener('dblclick', this.onDoubleClick); this.chart = null; this.eventEl = null;
+            if (!this.eventEl) return; console.log("Removing custom interaction listeners...");
+            this.eventEl.removeEventListener('wheel', this.onWheel); this.eventEl.removeEventListener('pointerdown', this.onPointerDown); this.eventEl.removeEventListener('pointermove', this.onPointerMove); this.eventEl.removeEventListener('pointerup', this.onPointerUp); this.eventEl.removeEventListener('pointerleave', this.onPointerLeave); this.eventEl.removeEventListener('pointercancel', this.onPointerCancel); this.eventEl.removeEventListener('dblclick', this.onDoubleClick); this.chart = null; this.eventEl = null;
         });
         return this;
     }
@@ -69,7 +69,7 @@ class CustomInteractionPlugin {
         } else { // Zoom X
             const currentXDomain = this.chart.model.xScale.domain(); const [newXMin, newXMax] = this._calculateNewDomain(currentXDomain, scaleFactor, zoomCenterX);
             this.chart.model.xScale.domain([newXMin, newXMax]); this.chart.options.xRange = null; domainChanged = true;
-             console.log(`Zoom X: factor=${scaleFactor.toFixed(2)}, center=${zoomCenterX.toFixed(0)}, newDomain=[${newXMin.toFixed(0)}, ${newXMax.toFixed(0)}]`); // Log zoom details
+            console.log(`Zoom X: factor=${scaleFactor.toFixed(2)}, center=${zoomCenterX.toFixed(0)}, newDomain=[${newXMin.toFixed(0)}, ${newXMax.toFixed(0)}]`); // Log zoom details
         }
         if (domainChanged) { this.chart.update(); this._checkAutoFollow(); }
     }
@@ -80,7 +80,7 @@ class CustomInteractionPlugin {
         event.preventDefault();
         this.chart.options.realTime = true; this.chart.options.yRange = "auto";
         this.updateFollowStateCallback(true);
-        if (this.isPanning) { this.isPanning = false; this.eventEl.style.cursor = ''; try { this.eventEl.releasePointerCapture(event.pointerId); } catch (e) {} }
+        if (this.isPanning) { this.isPanning = false; this.eventEl.style.cursor = ''; try { this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { } }
         this.chart.update();
     }
 
@@ -126,7 +126,7 @@ class CustomInteractionPlugin {
         if (this.isPanning) {
             console.log("Interaction: Pointer Up (Pan End)"); // Log interaction
             this.isPanning = false; this.eventEl.style.cursor = 'grab';
-            try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) {}
+            try { if (this.eventEl.hasPointerCapture(event.pointerId)) this.eventEl.releasePointerCapture(event.pointerId); } catch (e) { }
             this._checkAutoFollow(); // Check if follow should re-engage
         }
     }
@@ -140,7 +140,7 @@ class CustomInteractionPlugin {
         console.log(`_checkAutoFollow: chart=${!!this.chart}, realTime=${this.chart?.options?.realTime}, shouldEnable=${this.shouldEnableFollow()}`);
         if (!this.chart || this.chart.options.realTime || !this.shouldEnableFollow()) {
             console.log("--> Skipping auto follow check (already following or disabled).");
-             return;
+            return;
         }
 
         const currentXDomain = this.chart.model.xScale.domain();
@@ -193,44 +193,39 @@ export function initializeTimeChart(targetElement, numChannels, initialFollowSta
 
     try {
         const now = performance.now();
-        const baseTimeForChart = 0;
-        // const performanceTimeToDateEpochOffset = Date.now() - now; // Needed only if tooltip uses Date formatting
-
-        // Create instance of our custom plugin
-        const customInteractionPlugin = new CustomInteractionPlugin({
-            onFollowStateChange: onFollowStateChange,
-            shouldEnableFollow: shouldEnableFollowCheck
-        });
+        const performanceTimeToDateEpochOffset = Date.now() - now; // Needed only if tooltip uses Date formatting
 
         // ** Use the main TimeChart constructor **
-        const chartInstance = new TimeChart(targetElement, { // Use TimeChart, not TimeChart.core
-            baseTime: baseTimeForChart,
+        const chartInstance = new TimeChart.core(targetElement, {
             series: initialSeries,
             lineWidth: 1.5,
             xRange: { min: now - 10000, max: now }, // Initial 10s view
             yRange: 'auto',
             realTime: initialFollowState,
             // Padding options likely still work
-            renderPaddingLeft: 50, renderPaddingRight: 15, renderPaddingTop: 10, renderPaddingBottom: 25,
+            renderPaddingLeft: 45, renderPaddingRight: 10, renderPaddingTop: 10, renderPaddingBottom: 20,
             legend: { visible: true }, // Legend likely enabled by default, but explicit is ok
-            zoom: { // **Disable default zoom/pan** which might conflict with our plugin
-                x: { wheel: false, drag: false },
-                y: { wheel: false, drag: false }
-            },
-            // ** REMOVED explicit list of default plugins **
-            // Add *only* our custom plugin here if the library supports it this way
-            // (Check TimeChart docs if this doesn't work)
-            plugins: {
-                customInteraction: customInteractionPlugin
+            plugins: { // Explicitly add necessary plugins, excluding default zoom
+                lineChart: TimeChart.plugins.lineChart,
+                d3Axis: TimeChart.plugins.d3Axis,
+                legend: TimeChart.plugins.legend,
+                tooltip: new TimeChart.plugins.TimeChartTooltipPlugin({ // Using plugin class
+                    enabled: true,
+                    xLabel: 'Time',
+                    xFormatter: (x) => {
+                        try {
+                            return new Date(x + performanceTimeToDateEpochOffset).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+                        } catch (e) { return String(x); }
+                    },
+                    yFormatter: (y) => (typeof y === 'number' ? y.toFixed(4) : 'N/A'),
+                }),
+                nearestPoint: TimeChart.plugins.nearestPoint, // Keep nearest point for tooltip
+                crosshair: TimeChart.plugins.crosshair,       // Keep crosshair if desired
+                // Add our custom interaction plugin instance
+                customInteraction: new CustomInteractionPlugin()
             }
-            // If the above plugins option doesn't work for the main constructor,
-            // we might need to apply the plugin *after* initialization:
-            // chartInstance.pluginManager.register(customInteractionPlugin); // Example, check actual API
         });
         console.log("TimeChart instance created successfully using main constructor.");
-
-        // If applying plugin after init is needed:
-        // customInteractionPlugin.apply(chartInstance); // Manually apply if not done via options
 
         return chartInstance;
 

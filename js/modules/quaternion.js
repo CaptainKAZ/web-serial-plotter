@@ -28,17 +28,17 @@ export function initializeQuaternionView() {
         console.error("Quaternion view container #quaternionView not found.");
         // Attempt to show error in a generic way if overlay isn't found either
         const statusMsg = document.getElementById('statusMessage');
-        if(statusMsg) statusMsg.textContent = "错误：无法找到四元数视图容器。";
+        if (statusMsg) statusMsg.textContent = "错误：无法找到四元数视图容器。";
         return;
     }
     if (typeof THREE === 'undefined') {
         console.error("THREE library is not loaded.");
-         if(quaternionErrorOverlay) {
+        if (quaternionErrorOverlay) {
             quaternionErrorOverlay.textContent = "Error: THREE.js library not loaded.";
             quaternionErrorOverlay.style.display = 'flex';
-         } else {
-             console.error("Cannot display THREE.js load error: overlay not found.");
-         }
+        } else {
+            console.error("Cannot display THREE.js load error: overlay not found.");
+        }
         return;
     }
     // OrbitControls check remains the same (optional)
@@ -83,7 +83,7 @@ export function initializeQuaternionView() {
 
         // Object, Axes, Lighting (same as before)
         const geometry = new THREE.BoxGeometry(0.8, 1.2, 0.4);
-        const materials = [ new THREE.MeshStandardMaterial({ color: 0xff0000 }), new THREE.MeshStandardMaterial({ color: 0xffa500 }), new THREE.MeshStandardMaterial({ color: 0x00ff00 }), new THREE.MeshStandardMaterial({ color: 0x0000ff }), new THREE.MeshStandardMaterial({ color: 0xffffff }), new THREE.MeshStandardMaterial({ color: 0x808080 }) ];
+        const materials = [new THREE.MeshStandardMaterial({ color: 0xff0000 }), new THREE.MeshStandardMaterial({ color: 0xffa500 }), new THREE.MeshStandardMaterial({ color: 0x00ff00 }), new THREE.MeshStandardMaterial({ color: 0x0000ff }), new THREE.MeshStandardMaterial({ color: 0xffffff }), new THREE.MeshStandardMaterial({ color: 0x808080 })];
         threeObject = new THREE.Mesh(geometry, materials);
         threeScene.add(threeObject);
         threeAxesHelper = new THREE.AxesHelper(1.5);
@@ -100,20 +100,20 @@ export function initializeQuaternionView() {
         }
 
         // Hide error overlay on successful init
-         if (quaternionErrorOverlay) quaternionErrorOverlay.style.display = 'none';
+        if (quaternionErrorOverlay) quaternionErrorOverlay.style.display = 'none';
 
         // Start animation loop
         quatLastFpsCalcTime = performance.now();
         if (!quatAnimationRequest) {
             animateQuaternion();
         }
-         console.log("Three.js view initialized successfully.");
+        console.log("Three.js view initialized successfully.");
 
     } catch (error) {
         console.error("Error initializing Three.js:", error);
-        if(quaternionErrorOverlay) {
-             quaternionErrorOverlay.textContent = `Three.js initialization failed: ${error.message}`;
-             quaternionErrorOverlay.style.display = 'flex';
+        if (quaternionErrorOverlay) {
+            quaternionErrorOverlay.textContent = `Three.js initialization failed: ${error.message}`;
+            quaternionErrorOverlay.style.display = 'flex';
         }
         threeRenderer = null; threeCamera = null; // Clear exported refs on error
     }
@@ -130,8 +130,8 @@ export function updateQuaternionView(w, x, y, z) {
 
     if (isNaN(w) || isNaN(x) || isNaN(y) || isNaN(z)) {
         if (errorOverlay) {
-             errorOverlay.textContent = "接收到无效 (NaN) 四元数数据。"; // Changed message to Chinese
-             errorOverlay.style.display = 'flex';
+            errorOverlay.textContent = "接收到无效 (NaN) 四元数数据。"; // Changed message to Chinese
+            errorOverlay.style.display = 'flex';
         }
         return;
     }
@@ -149,8 +149,8 @@ function animateQuaternion() {
     quatAnimationRequest = requestAnimationFrame(animateQuaternion);
 
     if (!threeRendererInternal || !threeScene || !threeCameraInternal) {
-         if (quatAnimationRequest) cancelAnimationFrame(quatAnimationRequest);
-         quatAnimationRequest = null;
+        if (quatAnimationRequest) cancelAnimationFrame(quatAnimationRequest);
+        quatAnimationRequest = null;
         return;
     }
 
@@ -168,12 +168,12 @@ function animateQuaternion() {
  * Updates the channel selection dropdowns for quaternion components.
  */
 export function updateQuaternionSelectors(numChannels, currentIndices, onIndexChangeCallback) {
-     // Query selectors inside the function
-     const quatW = document.getElementById('quatWChannel');
-     const quatX = document.getElementById('quatXChannel');
-     const quatY = document.getElementById('quatYChannel');
-     const quatZ = document.getElementById('quatZChannel');
-     const selectors = [quatW, quatX, quatY, quatZ];
+    // Query selectors inside the function
+    const quatW = document.getElementById('quatWChannel');
+    const quatX = document.getElementById('quatXChannel');
+    const quatY = document.getElementById('quatYChannel');
+    const quatZ = document.getElementById('quatZChannel');
+    const selectors = [quatW, quatX, quatY, quatZ];
 
     if (selectors.some(sel => !sel)) {
         console.warn("Quaternion select elements not found.");
@@ -204,13 +204,13 @@ export function updateQuaternionSelectors(numChannels, currentIndices, onIndexCh
  * Reads the current values from the quaternion select dropdowns and updates the state object.
  */
 export function updateQuaternionIndices(indicesState) {
-     // Query elements inside the function
-     const quatW = document.getElementById('quatWChannel');
-     const quatX = document.getElementById('quatXChannel');
-     const quatY = document.getElementById('quatYChannel');
-     const quatZ = document.getElementById('quatZChannel');
+    // Query elements inside the function
+    const quatW = document.getElementById('quatWChannel');
+    const quatX = document.getElementById('quatXChannel');
+    const quatY = document.getElementById('quatYChannel');
+    const quatZ = document.getElementById('quatZChannel');
 
-     const getIndex = (selectElement) => {
+    const getIndex = (selectElement) => {
         if (!selectElement) return null;
         const val = parseInt(selectElement.value);
         return isNaN(val) ? null : val;
