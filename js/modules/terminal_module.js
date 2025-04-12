@@ -27,7 +27,7 @@ function updateParsedDataDisplayInternal(latestValues) {
         let displayValue = 'N/A';
         if (typeof value === 'number' && isFinite(value)) { displayValue = value.toFixed(3); }
         else if (isNaN(value)) { displayValue = 'NaN'; }
-        htmlContent += `<div class="channel-value"><span class="channel-label">通道 ${index + 1}:</span>${displayValue}</div>`;
+        htmlContent += `<div class="channel-value"><span class="channel-label">ch${index + 1}:</span>${displayValue}</div>`;
     });
     parsedDataDisplayElement.innerHTML = htmlContent;
 }
