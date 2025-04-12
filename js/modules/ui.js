@@ -85,6 +85,10 @@ export function updateControlVisibility(currentDataSource) {
     const wsControls = document.getElementById('webSerialControls');
     if (simControls) simControls.style.display = currentDataSource === 'simulated' ? 'block' : 'none';
     if (wsControls) wsControls.style.display = currentDataSource === 'webserial' ? 'block' : 'none';
+    // Also update parser visibility based on initial protocol selection if webserial is shown
+    if (currentDataSource === 'webserial') {
+         updateParserVisibility();
+    }
 }
 
 // Moved from data_processing: Updates the buffer usage bar and status text
@@ -170,8 +174,28 @@ export function setupResizeObserver(resizeHandler) {
     console.log("ResizeObserver setup complete.");
 }
 
+// --- 新增: 更新自定义解析器部分的可见性 ---
+export function updateParserVisibility() {
+    const protocolSelect = document.getElementById('serialProtocolSelect');
+    const customParserSection = document.getElementById('customParserSection');
+    const builtInParserStatus = document.getElementById('builtInParserStatus'); // 新增状态行
+    if (protocolSelect && customParserSection && builtInParserStatus) {
+        const isCustom = protocolSelect.value === 'custom';
+        customParserSection.style.display = isCustom ? 'block' : 'none';
+        builtInParserStatus.style.display = isCustom ? 'none' : 'block'; // 显示内置状态或自定义部分
 
-// --- Event Listener Setup (Simplified) ---
+        // 根据当前选择更新状态文本
+        if (!isCustom) {
+             const selectedOptionText = protocolSelect.options[protocolSelect.selectedIndex].text;
+             builtInParserStatus.textContent = `状态：使用内置协议 "${selectedOptionText}"。`;
+             builtInParserStatus.classList.remove('text-red-600', 'text-green-600'); // 重置颜色
+        } else {
+             // 自定义区域内的 parserStatus 会显示 Worker 状态
+        }
+    }
+}
+
+// --- Event Listener Setup (修改) ---
 export function setupEventListeners(handlers) {
     console.log("Setting up UI event listeners...");
 
@@ -196,6 +220,7 @@ export function setupEventListeners(handlers) {
 
     // WebSerial Controls
     addListener('connectSerialButton', 'click', handlers.handleConnectSerial);
+    addListener('serialProtocolSelect', 'change', handlers.handleProtocolChange); // 新增协议选择处理
     addListener('updateParserButton', 'click', handlers.handleUpdateParser);
     // Listeners for baudRate, dataBits etc. might be needed if they trigger actions,
     // but usually their values are read when 'connect' is clicked.

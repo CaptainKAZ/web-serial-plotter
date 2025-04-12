@@ -63,12 +63,22 @@
             <option value="none" selected>无</option>
             <option value="hardware">硬件</option>
         </select>
-        <label for="serialParser">自定义解析器 (JS 函数体):</label> <textarea id="serialParser" rows="6"
-            placeholder="输入 parseSerialData(uint8ArrayData) 函数体..."></textarea> <button
-            id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
-        <p id="parserStatus" class="parser-status">状态：使用默认解析器。</p>
-        <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
-    </div>
+
+        <label for="serialProtocolSelect">解析协议:</label>
+        <select id="serialProtocolSelect" class="mb-2">
+            <option value="default">默认 (逗号/空格分隔)</option>
+            <option value="justfloat">justfloat (N*float + 帧尾)</option>
+            <option value="firewater">firewater (文本 + 换行)</option>
+            <option value="custom">自定义</option>
+        </select>
+
+        <div id="customParserSection" style="display: none;"> <label for="serialParser">自定义解析器 (JS 函数体):</label>
+            <textarea id="serialParser" rows="6" placeholder="输入 parseSerialData(uint8ArrayData) 函数体... // 返回 { values: number[], frameByteLength: number } 或 { values: null, frameByteLength: 0 }"></textarea>
+            <button id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
+            <p id="parserStatus" class="parser-status">状态：使用自定义解析器。</p>
+            <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
+        </div>
+         <p id="builtInParserStatus" class="parser-status" style="display: block;">状态：使用内置解析器。</p> </div>
 </div>
 
 <div class="control-section">

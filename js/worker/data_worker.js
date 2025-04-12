@@ -1,5 +1,4 @@
 // --- Worker Globals ---
-// Keep batch interval from origin
 const WORKER_BATCH_INTERVAL_MS = 10; // 100Hz batching for simulation
 const SERIAL_BATCH_TIME_MS = 10;     // Batching interval for serial data posting
 const MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK = 80; // Rule for breaking long raw lines without newline
@@ -12,87 +11,214 @@ let serialReader = null;
 let keepReadingSerial = false; // Flag to control the serial read loop
 let serialAbortController = null; // To signal cancellation of reads
 
-// Default parser (processes simple comma/space separated numbers), can be overwritten by main thread
-let serialParserFunction = (uint8ArrayData) => {
-    // Default: Find the first newline character (0x0A)
-    const newlineIndex = uint8ArrayData.indexOf(0x0A);
+// --- Parser Functions ---
+
+/**
+ * Default parser: Parses comma or space-separated numbers ending with a newline.
+ * Handles \n and \r\n line endings.
+ * @param {Uint8Array} uint8ArrayData - Raw data bytes.
+ * @returns {{values: number[] | null, frameByteLength: number}}
+ */
+function parseDefault(uint8ArrayData) {
+    const newlineIndex = uint8ArrayData.indexOf(0x0A); // Find LF (newline)
     if (newlineIndex !== -1) {
-        // Extract the line bytes (excluding newline)
-        const lineBytes = uint8ArrayData.slice(0, newlineIndex);
-        // Attempt to decode as UTF-8 (common case) and parse
+        // Check for preceding CR (carriage return) for Windows/mixed line endings
+        const frameEndIndex = (newlineIndex > 0 && uint8ArrayData[newlineIndex - 1] === 0x0D) ? newlineIndex - 1 : newlineIndex;
+        const lineBytes = uint8ArrayData.slice(0, frameEndIndex);
+        // Determine bytes consumed (including newline and optional carriage return)
+        const consumedLength = newlineIndex + 1; // Consume up to and including LF
+
         try {
-            const textDecoder = new TextDecoder(); // Use default UTF-8
+            const textDecoder = new TextDecoder(); // Default UTF-8
             const lineString = textDecoder.decode(lineBytes);
             const values = lineString.trim().split(/\s*,\s*|\s+/).map(Number).filter(n => !isNaN(n));
             return {
                 values: values,
-                frameByteLength: newlineIndex + 1 // Consume line + newline
+                frameByteLength: consumedLength
             };
         } catch (e) {
-             console.warn("Worker: Default parser failed to decode/parse line", e);
-             // If decode/parse fails, still consume the line to avoid getting stuck
-             return { values: [], frameByteLength: newlineIndex + 1 };
+            console.warn("Worker: Default parser failed to decode/parse line", e);
+            // Consume the line even if parsing fails
+            return { values: [], frameByteLength: consumedLength };
         }
     }
-    // No newline found, indicate no complete frame parsed yet
+    // No newline found
     return { values: null, frameByteLength: 0 };
-};
+}
+
+/**
+ * justfloat parser: Parses N * float (little-endian) followed by a specific tail [0x00, 0x00, 0x80, 0x7f].
+ * @param {Uint8Array} uint8ArrayData - Raw data bytes.
+ * @returns {{values: number[] | null, frameByteLength: number}}
+ */
+function parseJustFloat(uint8ArrayData) {
+    const tail = [0x00, 0x00, 0x80, 0x7f];
+    const tailLength = tail.length;
+    const floatSize = 4; // Size of a float in bytes
+
+    // Search for the tail sequence efficiently
+    let searchStartIndex = 0;
+    while (searchStartIndex < uint8ArrayData.length) {
+        const tailStartIndex = uint8ArrayData.indexOf(tail[0], searchStartIndex);
+
+        if (tailStartIndex === -1) {
+            // First byte of tail not found, need more data or it's not present
+            break;
+        }
+
+        // Check if the buffer has enough bytes for the complete tail sequence
+        if (tailStartIndex + tailLength > uint8ArrayData.length) {
+            // Potential tail start found, but not enough data follows for the full tail
+            break; // Need more data
+        }
+
+        // Check the rest of the tail sequence
+        let tailFound = true;
+        for (let j = 1; j < tailLength; j++) {
+            if (uint8ArrayData[tailStartIndex + j] !== tail[j]) {
+                tailFound = false;
+                // Mismatch, continue searching from the byte after the potential start
+                searchStartIndex = tailStartIndex + 1;
+                break;
+            }
+        }
+
+        if (tailFound) {
+            // Full tail sequence found, ending at index tailStartIndex + tailLength - 1
+            const frameDataLength = tailStartIndex; // Length of the data part (floats)
+
+            // Validate data length
+            if (frameDataLength % floatSize !== 0) {
+                console.warn(`Worker (justfloat): Invalid frame data length ${frameDataLength}, not divisible by ${floatSize}. Consuming up to tail to resync.`);
+                // Consume the invalid data and tail to potentially recover synchronization
+                return { values: [], frameByteLength: tailStartIndex + tailLength };
+            }
+
+            const numChannels = frameDataLength / floatSize;
+            const values = [];
+            // Use DataView for safer typed array access
+            const dataView = new DataView(uint8ArrayData.buffer, uint8ArrayData.byteOffset, frameDataLength);
+
+            try {
+                for (let ch = 0; ch < numChannels; ch++) {
+                    // Read float (little-endian specified by 'true')
+                    values.push(dataView.getFloat32(ch * floatSize, true));
+                }
+                // Successfully parsed frame
+                return { values: values, frameByteLength: frameDataLength + tailLength };
+            } catch (e) {
+                console.error("Worker (justfloat): Error reading float data:", e);
+                // Consume the frame even on error to try and resync
+                return { values: [], frameByteLength: tailStartIndex + tailLength };
+            }
+        }
+        // If tail not found starting at tailStartIndex, loop continues search from searchStartIndex
+    }
+
+    // Tail not found or incomplete frame in the current buffer
+    return { values: null, frameByteLength: 0 };
+}
+
+
+/**
+ * firewater parser: Parses "<any>:ch0,ch1,...,chN\n" format.
+ * Handles \n and \r\n line endings.
+ * @param {Uint8Array} uint8ArrayData - Raw data bytes.
+ * @returns {{values: number[] | null, frameByteLength: number}}
+ */
+function parseFirewater(uint8ArrayData) {
+    // Find the first newline character (LF, 0x0A)
+    const newlineIndex = uint8ArrayData.indexOf(0x0A);
+    if (newlineIndex !== -1) {
+        // Check for preceding CR (carriage return) for Windows/mixed line endings (\r\n)
+        const frameEndIndex = (newlineIndex > 0 && uint8ArrayData[newlineIndex - 1] === 0x0D) ? newlineIndex - 1 : newlineIndex;
+        const lineBytes = uint8ArrayData.slice(0, frameEndIndex);
+
+        // Determine bytes consumed (including LF and optional CR)
+        const consumedLength = newlineIndex + 1; // Consume up to and including LF
+
+        try {
+            const textDecoder = new TextDecoder(); // Default UTF-8
+            let lineString = textDecoder.decode(lineBytes);
+
+            // Check for optional "<any>:" part
+            const colonIndex = lineString.indexOf(':');
+            if (colonIndex !== -1) {
+                lineString = lineString.substring(colonIndex + 1); // Take the part after the colon
+            }
+
+            // Split by comma and parse numbers
+            const values = lineString.trim().split(',')
+                .map(s => parseFloat(s.trim())) // Parse each part as float
+                .filter(n => !isNaN(n));       // Keep only valid numbers
+
+            return {
+                values: values,
+                frameByteLength: consumedLength
+            };
+        } catch (e) {
+            console.warn("Worker (firewater): Failed to decode/parse line:", e);
+            // Consume the line even if parsing fails
+            return { values: [], frameByteLength: consumedLength };
+        }
+    }
+
+    // No newline found yet
+    return { values: null, frameByteLength: 0 };
+}
+
+
+// Default parser function (can be overwritten)
+let serialParserFunction = parseDefault; // Start with the default parser
 
 
 // Data Source State
 let currentDataSource = 'simulated';
 let simConfig = { numChannels: 4, frequency: 1000, amplitude: 1 };
-let serialConfig = {}; // Placeholder for potential future serial config options
+let serialConfig = {}; // Placeholder
 
 // Simulation Timing
-let currentRunStartTime = 0; // Worker's internal start time for simulation calculation
+let currentRunStartTime = 0;
 let lastBatchSendTime = 0;
 
 // --- Worker Functions ---
 
 /**
- * Generates a batch of simulated data points based on elapsed time and target frequency.
- * Sends the batch to the main thread.
+ * Generates a batch of simulated data points.
  */
 function generateAndSendBatch() {
     const now = performance.now();
-    const timeSinceLastBatch = Math.max(1, now - lastBatchSendTime); // Avoid zero/negative time
-    // Calculate points needed based on target frequency and actual elapsed time
+    const timeSinceLastBatch = Math.max(1, now - lastBatchSendTime);
     const pointsInBatch = Math.max(1, Math.round(simConfig.frequency * timeSinceLastBatch / 1000));
 
     const batch = [];
     for (let p = 0; p < pointsInBatch; p++) {
-        // Interpolate timestamp for this specific point within the batch interval
         const pointTimestamp = lastBatchSendTime + (timeSinceLastBatch * (p + 1) / pointsInBatch);
-        // Calculate elapsed time relative to the worker's simulation start time
         const pointElapsedMs = pointTimestamp - currentRunStartTime;
         const values = [];
         for (let i = 0; i < simConfig.numChannels; i++) {
             const phase = (i * Math.PI) / 4;
             const freqMultiplier = 1 + i * 0.5;
             const timeSec = pointElapsedMs / 1000.0;
-            // Generate simulated value (sine wave + noise)
             let value = simConfig.amplitude * Math.sin(2 * Math.PI * freqMultiplier * timeSec + phase) + (Math.random() - 0.5) * 0.1 * simConfig.amplitude;
-            // Ensure value is a finite number, default to 0 otherwise
             values.push(typeof value === 'number' && isFinite(value) ? value : 0);
         }
-        // Add point with its absolute timestamp and values
         batch.push({ timestamp: pointTimestamp, values: values });
     }
 
     if (batch.length > 0) {
         self.postMessage({ type: 'dataBatch', payload: batch });
     }
-    lastBatchSendTime = now; // Update the time of the last batch sending
+    lastBatchSendTime = now;
 }
 
 /**
  * Starts the simulation data generation interval.
  */
 function startSimulation() {
-    stopSimulation(); // Ensure any previous simulation is stopped
-    currentRunStartTime = performance.now(); // Record the start time for this simulation run
-    lastBatchSendTime = currentRunStartTime; // Initialize last send time
+    stopSimulation();
+    currentRunStartTime = performance.now();
+    lastBatchSendTime = currentRunStartTime;
     console.log(`Worker: Starting simulation batch generation at ${simConfig.frequency} Hz (Batch interval: ${WORKER_BATCH_INTERVAL_MS}ms)`);
     workerBatchInterval = setInterval(generateAndSendBatch, WORKER_BATCH_INTERVAL_MS);
 }
@@ -105,15 +231,12 @@ function stopSimulation() {
         clearInterval(workerBatchInterval);
         workerBatchInterval = null;
         console.warn("Worker: Simulation batch interval STOPPED.");
-        currentRunStartTime = 0; // Reset start time
+        currentRunStartTime = 0;
     }
 }
 
 /**
  * Helper function to concatenate two Uint8Arrays.
- * @param {Uint8Array} a - First array.
- * @param {Uint8Array} b - Second array.
- * @returns {Uint8Array} The concatenated array.
  */
 function concatUint8Arrays(a, b) {
     if (!a || a.byteLength === 0) return b;
@@ -126,8 +249,6 @@ function concatUint8Arrays(a, b) {
 
 /**
  * Starts reading data from the Web Serial port in a loop.
- * Reads raw bytes, uses the serialParserFunction to find frames/lines,
- * and sends batches of data points (including raw bytes) to the main thread.
  */
 async function startReadingSerial() {
     // --- 1. Pre-checks and State Setup ---
@@ -137,13 +258,13 @@ async function startReadingSerial() {
     }
     if (serialReader) {
         console.warn("Worker: Reader already exists, attempting cleanup...");
-        await stopReadingSerial(); // Ensure previous reader is cleaned up
+        await stopReadingSerial();
     }
 
-    keepReadingSerial = true; // Control flag for the read loop
-    serialAbortController = new AbortController(); // Used to signal cancellation
-    let lineBuffer = new Uint8Array(0); // Buffer for incoming serial bytes
-    const dataPointsBatch = []; // Array for batching data points to send
+    keepReadingSerial = true;
+    serialAbortController = new AbortController();
+    let lineBuffer = new Uint8Array(0);
+    const dataPointsBatch = [];
     let lastSerialSendTime = performance.now();
 
     // --- 2. Get Raw Byte Stream Reader ---
@@ -153,91 +274,80 @@ async function startReadingSerial() {
         self.postMessage({ type: 'status', payload: 'Worker: Starting serial read loop.' });
     } catch (error) {
         self.postMessage({ type: 'error', payload: `Worker: Error obtaining reader: ${error.message}` });
-        await stopReadingSerial(); // Cleanup on error
+        await stopReadingSerial();
         return;
     }
 
     // --- 3. Main Read and Process Loop ---
     try {
         while (keepReadingSerial) {
-            // --- Read a chunk of raw data (value will be Uint8Array) ---
             const { value, done } = await serialReader.read().catch(err => {
-                if (err.name !== 'AbortError') { // AbortError is expected on stop
+                if (err.name !== 'AbortError') {
                     console.error("Worker: Read error:", err);
                     self.postMessage({ type: 'error', payload: `Worker: Read error: ${err.message}` });
                 }
-                return { value: undefined, done: true }; // Treat error as stream end
+                return { value: undefined, done: true };
             });
 
-            const now = performance.now(); // Timestamp for received data
+            const now = performance.now();
 
-            // --- Check for stream end or external stop signal ---
             if (done) { console.log("Worker: Serial stream reported done."); keepReadingSerial = false; break; }
             if (!keepReadingSerial) { console.log("Worker: keepReadingSerial became false, exiting loop."); break; }
 
-            // --- Process received Uint8Array data ---
             if (value && value.byteLength > 0) {
-                lineBuffer = concatUint8Arrays(lineBuffer, value); // Append new data to buffer
+                lineBuffer = concatUint8Arrays(lineBuffer, value);
 
-                let processedSomething = true; // Inner loop processing flag
-                // --- Inner processing loop: Continually process buffer until no progress ---
+                let processedSomething = true;
+                // Inner loop to process buffer as much as possible
                 while (processedSomething && lineBuffer.byteLength > 0 && keepReadingSerial) {
-                    processedSomething = false; // Reset flag for this iteration
+                    processedSomething = false;
 
-                    // --- Step 1: Attempt to parse a protocol frame using the parser ---
+                    // --- Step 1: Attempt to parse using the SELECTED parser function ---
+                    // serialParserFunction points to the correct parser (default, custom, justfloat, firewater)
                     const parseResult = serialParserFunction(lineBuffer);
+
                     if (parseResult && parseResult.values !== null && parseResult.frameByteLength > 0) {
+                        // Successfully parsed a frame
                         const rawFrameBytes = lineBuffer.slice(0, parseResult.frameByteLength);
                         dataPointsBatch.push({
                             timestamp: now,
                             values: parseResult.values,
-                            rawLineBytes: rawFrameBytes // Store raw bytes of the frame
+                            rawLineBytes: rawFrameBytes // Include raw bytes for display module
                         });
                         lineBuffer = lineBuffer.slice(parseResult.frameByteLength); // Consume processed bytes
-                        processedSomething = true;
-                        continue; // Immediately try to parse the next frame
+                        processedSomething = true; // Indicate progress
+                        continue; // Immediately try to parse the next frame from remaining buffer
                     }
 
-                    // --- Step 2: Check for 80-byte force break rule (if parser didn't find frame) ---
-                     if (lineBuffer.byteLength > MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK) {
+                    // --- Step 2: (Optional Fallback/Safety) Check for 80-byte force break rule if parser didn't find frame ---
+                    // This helps prevent the buffer growing indefinitely if the parser fails to find frames.
+                    // You might remove this if your protocols are guaranteed to have delimiters eventually.
+                    if (!processedSomething && lineBuffer.byteLength > MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK) {
                         const first80Bytes = lineBuffer.slice(0, MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK);
+                        // Check if there's *any* newline within the first 80 bytes. If not, force break.
                         const earlyNewlineIndex = first80Bytes.indexOf(0x0A);
 
-                        if (earlyNewlineIndex === -1) { // No newline within the first 80 bytes
-                            console.warn(`Worker: Forcing raw line break at ${MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK} bytes.`);
+                        if (earlyNewlineIndex === -1) { // No newline found within 80 bytes
+                            console.warn(`Worker: Forcing raw line break at ${MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK} bytes (potential parser stall or long line).`);
                             const rawSegmentBytes = first80Bytes;
                             dataPointsBatch.push({
                                 timestamp: now,
                                 values: [], // No parsed values for this segment
-                                rawLineBytes: rawSegmentBytes // Store the raw segment
+                                rawLineBytes: rawSegmentBytes
                             });
                             lineBuffer = lineBuffer.slice(MAX_RAW_BUFFER_LENGTH_FOR_DISPLAY_BREAK); // Consume the segment
                             processedSomething = true;
                             continue; // Try processing remaining buffer
                         }
-                        // else: There's a newline within 80 bytes, let Step 3 handle it below.
+                        // Else: There's a newline within 80 bytes, let the parser (if default) handle it eventually.
                     }
 
 
-                    // --- Step 3: Check for a simple newline (0x0A) as a fallback separator (if parser/break rule didn't apply) ---
-                    const newlineIndex = lineBuffer.indexOf(0x0A);
-                    if (newlineIndex !== -1) {
-                        // We found a newline, but the parser didn't recognize it as a full frame.
-                        // Treat it as a raw line segment termination.
-                        const rawSegmentBytes = lineBuffer.slice(0, newlineIndex); // Data before newline
-                        dataPointsBatch.push({
-                            timestamp: now,
-                            values: [], // No parsed values
-                            rawLineBytes: rawSegmentBytes // Store raw segment bytes
-                        });
-                        // Consume segment AND the newline character
-                        lineBuffer = lineBuffer.slice(newlineIndex + 1);
-                        processedSomething = true;
-                        continue;
+                    // If nothing was processed (no frame parsed, no forced break), exit inner loop
+                    // to wait for more data in the next read() call.
+                    if (!processedSomething) {
+                        break;
                     }
-
-                    // If nothing was processed (no frame, no break, no newline), exit inner loop
-                    if (!processedSomething) { break; }
                 } // --- End inner processing loop ---
             } // --- End data processing (if value) ---
 
@@ -270,7 +380,7 @@ async function startReadingSerial() {
             console.log("Worker: Releasing reader lock...");
             try {
                 // Attempt to cancel any pending read (might trigger AbortError, caught above)
-                await serialReader.cancel().catch(() => {}); // Ignore cancel errors
+                await serialReader.cancel().catch(() => { }); // Ignore cancel errors
                 serialReader.releaseLock(); // Release the lock on the readable stream
                 console.log("Worker: Reader lock released.");
             } catch (e) { console.error("Worker: Error releasing reader lock:", e); }
@@ -279,6 +389,7 @@ async function startReadingSerial() {
         self.postMessage({ type: 'status', payload: 'Worker: Serial read loop finished.' });
     }
 }
+
 
 /**
  * Stops the serial data reading loop and cleans up resources.
@@ -322,7 +433,7 @@ self.onmessage = async (event) => {
 
     switch (type) {
         case 'start':
-            console.log("Worker: Received 'start' command for source:", payload.source);
+            console.log("Worker: Received 'start' command for source:", payload.source, "Protocol:", payload.protocol);
             currentDataSource = payload.source;
 
             if (currentDataSource === 'simulated') {
@@ -336,40 +447,63 @@ self.onmessage = async (event) => {
                 serialPort = payload.port; // Assume port is transferred here
                 serialConfig = payload.config; // Store any serial-specific config
 
-                // Apply custom parser if provided, otherwise reset to default
-                if (payload.parserCode) {
-                    try {
-                        // IMPORTANT: Use Function constructor carefully. Assumes code comes from trusted source (user input in this app).
-                        const newParser = new Function('uint8ArrayData', payload.parserCode);
-                        // Basic test: Call with empty array or simple known data
-                        newParser(new Uint8Array([49, 44, 50, 10])); // Test with "1,2\n"
-                        serialParserFunction = newParser;
-                        self.postMessage({ type: 'status', payload: 'Worker: Custom parser applied.' });
-                        console.log("Worker: Custom parser applied.");
-                    } catch (error) {
-                        self.postMessage({ type: 'error', payload: `Worker: Invalid parser code: ${error.message}` });
-                        // Optionally: Stop processing if parser is invalid? For now, we just report error.
-                        // Reset to default if custom fails?
-                        // serialParserFunction = (uint8ArrayData) => { /* ... default logic ... */ };
-                        // return; // Or maybe don't start reading? Depends on requirements.
-                    }
-                } else {
-                     // Reset to default parser if no code provided
-                    serialParserFunction = (uint8ArrayData) => {
-                        const newlineIndex = uint8ArrayData.indexOf(0x0A);
-                        if (newlineIndex !== -1) {
-                            const lineBytes = uint8ArrayData.slice(0, newlineIndex);
-                            try {
-                                const textDecoder = new TextDecoder();
-                                const lineString = textDecoder.decode(lineBytes);
-                                const values = lineString.trim().split(/\s*,\s*|\s+/).map(Number).filter(n => !isNaN(n));
-                                return { values: values, frameByteLength: newlineIndex + 1 };
-                            } catch (e) { return { values: [], frameByteLength: newlineIndex + 1 }; }
+                // --- Select Parser Based on Protocol ---
+                const protocol = payload.protocol;
+                let parserSelected = false;
+                let parserStatusMsg = 'Worker: Unknown protocol, using default parser.'; // Default message
+
+                if (protocol === 'custom') {
+                    if (payload.parserCode) {
+                        try {
+                            // IMPORTANT: Use Function constructor carefully. Assumes code comes from trusted source (user input in this app).
+                            const newParser = new Function('uint8ArrayData', payload.parserCode);
+                            // Basic test: Call with empty array or simple known data
+                            newParser(new Uint8Array([49, 44, 50, 10])); // Test with "1,2\n"
+                            serialParserFunction = newParser;
+                            parserStatusMsg = 'Worker: Custom parser applied.';
+                            parserSelected = true;
+                            console.log("Worker: Custom parser applied.");
+                        } catch (error) {
+                            parserStatusMsg = `Worker: Invalid custom parser code: ${error.message}`;
+                            self.postMessage({ type: 'error', payload: parserStatusMsg });
+                            // Fallback to default if custom fails
+                            serialParserFunction = parseDefault;
+                            console.error("Worker: Failed to apply custom parser, falling back to default.", error);
+                            parserStatusMsg = 'Worker: Invalid custom parser, using default.'; // Update status msg
+                            // parserSelected remains false or set it true because default is selected? Let's say true because default is chosen.
+                            parserSelected = true;
                         }
-                        return { values: null, frameByteLength: 0 };
-                    };
-                    console.log("Worker: Reset to default parser.");
+                    } else {
+                        // Custom selected but no code provided
+                        parserStatusMsg = 'Worker: Custom protocol selected but no code provided. Using default parser.';
+                        self.postMessage({ type: 'warn', payload: parserStatusMsg });
+                        serialParserFunction = parseDefault;
+                        parserSelected = true; // Default is selected
+                        console.warn(parserStatusMsg);
+                    }
+                } else if (protocol === 'justfloat') {
+                    serialParserFunction = parseJustFloat;
+                    parserStatusMsg = 'Worker: Using "justfloat" parser.';
+                    parserSelected = true;
+                    console.log(parserStatusMsg);
+                } else if (protocol === 'firewater') {
+                    serialParserFunction = parseFirewater;
+                    parserStatusMsg = 'Worker: Using "firewater" parser.';
+                    parserSelected = true;
+                    console.log(parserStatusMsg);
+                } else { // Default or unknown protocol specified
+                    serialParserFunction = parseDefault;
+                    parserStatusMsg = 'Worker: Using default (comma/space separated) parser.';
+                    parserSelected = true; // Default is always available
+                    console.log(parserStatusMsg);
                 }
+
+                // Send status back to main thread about which parser is active
+                if (parserSelected) { // Only send status if a valid selection (incl. default) was made
+                    self.postMessage({ type: 'status', payload: parserStatusMsg });
+                }
+                // --- End Parser Selection ---
+
                 startReadingSerial(); // Start the async read loop
             }
             break;
@@ -381,12 +515,10 @@ self.onmessage = async (event) => {
             } else if (currentDataSource === 'webserial') {
                 await stopReadingSerial(); // Stops async read loop and cleans up worker references
             }
-            // Reset current source after stopping? Maybe not necessary unless explicitly starting again.
-            // currentDataSource = null;
             break;
 
         case 'updateSimConfig':
-             if (currentDataSource === 'simulated') {
+            if (currentDataSource === 'simulated') {
                 console.log("Worker: Updating simulation config:", payload);
                 simConfig = payload;
                 // If simulation is currently running, restart it with the new config
@@ -398,26 +530,31 @@ self.onmessage = async (event) => {
 
         case 'updateParser':
             console.log("Worker: Received 'updateParser' command.");
-             if (currentDataSource === 'webserial') { // Only relevant for serial
-                 try {
+            // Only allow updating if the current mode IS 'custom'
+            // (Main thread should prevent sending this, but good to double check here)
+            if (currentDataSource === 'webserial' && serialParserFunction !== parseDefault && serialParserFunction !== parseJustFloat && serialParserFunction !== parseFirewater) {
+                // It's likely a custom function (check if it's not one of the built-ins)
+                try {
                     const newParser = new Function('uint8ArrayData', payload.code);
                     newParser(new Uint8Array([49, 44, 50, 10])); // Basic test
-                    serialParserFunction = newParser;
+                    serialParserFunction = newParser; // Update the active parser
                     self.postMessage({ type: 'status', payload: 'Worker: Custom parser updated.' });
-                     console.log("Worker: Custom parser updated.");
+                    console.log("Worker: Custom parser updated via 'updateParser'.");
                 } catch (error) {
-                    self.postMessage({ type: 'error', payload: `Worker: Invalid parser code: ${error.message}` });
+                    self.postMessage({ type: 'error', payload: `Worker: Invalid parser code on update: ${error.message}` });
+                    // Optionally revert to previous custom parser or default? For now, just report error.
                 }
             } else {
-                 console.warn("Worker: Received updateParser command but not in webserial mode.");
+                console.warn("Worker: Ignored 'updateParser' command (not in custom mode or not webserial). Current parser:", serialParserFunction.name);
+                self.postMessage({ type: 'warn', payload: 'Worker: Parser update ignored (not in custom mode).' });
             }
             break;
 
         case 'closePort':
             // Main thread is asking worker to stop using the port (likely before main thread closes it)
             console.log("Worker: Received 'closePort' command (likely before main thread closes).");
-             // Ensure reading stops and worker releases its reference to the port.
-             // This is crucial if the main thread intends to close the port.
+            // Ensure reading stops and worker releases its reference to the port.
+            // This is crucial if the main thread intends to close the port.
             await stopReadingSerial();
             break;
 
