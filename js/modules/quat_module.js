@@ -1,8 +1,6 @@
 // js/modules/quat_module.js
 // Handles dynamic channel updates on select click and initial channel check.
 
-import { QUAT_TARGET_INTERVAL } from '../config.js';
-
 // --- Module State ---
 export let threeRenderer = null;
 export let threeCamera = null;

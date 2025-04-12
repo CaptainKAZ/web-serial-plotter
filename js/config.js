@@ -17,7 +17,7 @@ export const seriesColors = [ // Default colors for TimeChart series
 export const ZOOM_FACTOR = 1.1; // Factor for wheel zoom in TimeChart custom interaction
 
 // --- Simulation Defaults ---
-export const DEFAULT_SIM_CHANNELS = 4;
+export const DEFAULT_SIM_CHANNELS = 1;
 export const DEFAULT_SIM_FREQUENCY = 1000;
 export const DEFAULT_SIM_AMPLITUDE = 1;
 
@@ -25,10 +25,8 @@ export const DEFAULT_SIM_AMPLITUDE = 1;
 export const DEFAULT_BAUD_RATE = 115200;
 // Add other serial defaults if needed
 
-// --- Quaternion View ---
-// Define target FPS, though actual rendering might adapt
-export const QUAT_TARGET_FPS = 60;
-export const QUAT_TARGET_INTERVAL = 1000 / QUAT_TARGET_FPS;
+// --- Terminal View ---
+export const TERMINAL_UPDATE_INTERVAL_MS = 40;
 
 // Base time calculation (consider if needed globally or just in timechart init)
 // Using performance.now() relative timestamps might be simpler if baseTime is handled well by TimeChart

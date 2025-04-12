@@ -19,8 +19,8 @@ export async function connectSerial(appStateRef) {
         return;
     }
     if (appStateRef.isCollecting) {
-         console.warn("Cannot connect: Data collection is active.");
-         updateStatusMessage("状态：请先停止采集再连接串口");
+        console.warn("Cannot connect: Data collection is active.");
+        updateStatusMessage("状态：请先停止采集再连接串口");
         return;
     }
     if (appStateRef.serialPort) {
@@ -71,7 +71,7 @@ export async function connectSerial(appStateRef) {
         // Let main.js handle button state updates after promise resolves/rejects
         // Or pass the updateButtonStates function if preferred.
         // For now, rely on main.js context after await finishes.
-         if(appStateRef.updateButtonStatesFn) appStateRef.updateButtonStatesFn();
+        if (appStateRef.updateButtonStatesFn) appStateRef.updateButtonStatesFn();
     }
 }
 
@@ -127,31 +127,31 @@ export async function disconnectSerial(appStateRef) {
  * @param {object} appStateRef - Reference to the main application state object.
  */
 export function handleSerialDisconnectEvent(event, appStateRef) {
-     // Check if the disconnected port is the one we *thought* we were using
-     // Note: appStateRef.serialPort might be null if worker had it. Check against event.target?
-     // For simplicity, if *any* port disconnects, and we are in serial mode & collecting, stop.
-     console.warn("Browser reported serial disconnect event:", event.target);
-     // Check if we are currently collecting data using the webserial source
-     if (appStateRef.isCollecting && appStateRef.currentDataSource === 'webserial') {
-         console.log("Main: Stopping collection due to external serial disconnect event.");
-         updateStatusMessage("状态：串口连接丢失 (外部事件) - 停止采集中...");
-         // Call the main stop function passed in appStateRef
-         if (appStateRef.stopDataCollectionFn) {
-             appStateRef.stopDataCollectionFn(); // This should also trigger cleanup
-         } else {
-             console.error("stopDataCollection function not available to handle disconnect event!");
-             handleSerialDisconnectCleanup(appStateRef); // Fallback cleanup
-         }
-     } else if (appStateRef.serialPort && event.target === appStateRef.serialPort) {
-         // If not collecting, but the disconnected port is the one main holds, cleanup state.
-         console.log("Main: External disconnect for non-collecting port detected. Cleaning up.");
-         updateStatusMessage("状态：串口连接丢失 (外部事件)");
-         handleSerialDisconnectCleanup(appStateRef);
-     } else {
-         // Disconnect event for a port we don't know about or already cleaned up
-         console.log("Main: Ignoring disconnect event for unrelated or already closed port.");
-     }
- }
+    // Check if the disconnected port is the one we *thought* we were using
+    // Note: appStateRef.serialPort might be null if worker had it. Check against event.target?
+    // For simplicity, if *any* port disconnects, and we are in serial mode & collecting, stop.
+    console.warn("Browser reported serial disconnect event:", event.target);
+    // Check if we are currently collecting data using the webserial source
+    if (appStateRef.isCollecting && appStateRef.currentDataSource === 'webserial') {
+        console.log("Main: Stopping collection due to external serial disconnect event.");
+        updateStatusMessage("状态：串口连接丢失 (外部事件) - 停止采集中...");
+        // Call the main stop function passed in appStateRef
+        if (appStateRef.stopDataCollectionFn) {
+            appStateRef.stopDataCollectionFn(); // This should also trigger cleanup
+        } else {
+            console.error("stopDataCollection function not available to handle disconnect event!");
+            handleSerialDisconnectCleanup(appStateRef); // Fallback cleanup
+        }
+    } else if (appStateRef.serialPort && event.target === appStateRef.serialPort) {
+        // If not collecting, but the disconnected port is the one main holds, cleanup state.
+        console.log("Main: External disconnect for non-collecting port detected. Cleaning up.");
+        updateStatusMessage("状态：串口连接丢失 (外部事件)");
+        handleSerialDisconnectCleanup(appStateRef);
+    } else {
+        // Disconnect event for a port we don't know about or already cleaned up
+        console.log("Main: Ignoring disconnect event for unrelated or already closed port.");
+    }
+}
 
 
 /**
@@ -166,8 +166,8 @@ export function handleSerialDisconnectCleanup(appStateRef) {
         navigator.serial.removeEventListener('disconnect', handleSerialDisconnectEvent);
         appStateRef.serialPort = null;
     }
-     // General listener removal just in case
-     navigator.serial.removeEventListener('disconnect', handleSerialDisconnectEvent);
+    // General listener removal just in case
+    navigator.serial.removeEventListener('disconnect', handleSerialDisconnectEvent);
 
 
     // Query and Update UI elements state
@@ -185,13 +185,13 @@ export function handleSerialDisconnectCleanup(appStateRef) {
         const disableSerialOptions = appStateRef.isCollecting;
         serialOptsDiv.querySelectorAll('input, select, textarea, button').forEach(el => {
             // Don't re-enable connect button if disabled for other reasons (e.g., collecting)
-            if(el !== connectBtn) el.disabled = disableSerialOptions;
+            if (el !== connectBtn) el.disabled = disableSerialOptions;
         });
-         if(updateParserBtnEl) updateParserBtnEl.disabled = disableSerialOptions;
+        if (updateParserBtnEl) updateParserBtnEl.disabled = disableSerialOptions;
     }
 
     // Update button states using the main handler (important after cleanup)
-     if(appStateRef.updateButtonStatesFn) appStateRef.updateButtonStatesFn();
+    if (appStateRef.updateButtonStatesFn) appStateRef.updateButtonStatesFn();
 
     console.log("Main: Serial disconnect cleanup finished.");
 }
@@ -206,7 +206,7 @@ export function updateSerialParser(appStateRef) {
     const parserStatusEl = document.getElementById('parserStatus');
 
     if (!serialParserTextareaEl || !parserStatusEl) {
-         console.error("Cannot update parser: Textarea or status element not found.");
+        console.error("Cannot update parser: Textarea or status element not found.");
         return;
     }
     const code = serialParserTextareaEl.value;

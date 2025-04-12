@@ -1,9 +1,8 @@
 <div class="control-section">
     <h3>数据源</h3> <select id="dataSourceSelect" class="mb-2">
-        <option value="simulated">模拟数据</option>
-        <option value="webserial">WebSerial</option>
-        <option value="tcp" disabled>TCP (不可用)</option>
-        <option value="udp" disabled>UDP (不可用)</option>
+        <option value="simulated">模拟数据（性能测试）</option>
+        <option value="webserial" selected>WebSerial</option>
+        <option value="websocket" disabled>WebSocket（暂未支持）</option>
     </select>
     <button id="startStopButton" class="w-full mb-2">开始采集</button>
     <p id="statusMessage" class="text-xs text-gray-500 mt-1">状态：空闲</p>
@@ -34,7 +33,7 @@
         <label for="baudRateInput">波特率:</label>
         <div class="flex gap-2">
              <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates"
-                value="115200" min="300" max="4000000" step="100">
+                value="" min="300" max="4000000" step="100">
             <datalist id="commonBaudRates">
                 <option>9600</option>
                 <option>19200</option>
@@ -67,8 +66,8 @@
         <label for="serialProtocolSelect">解析协议:</label>
         <select id="serialProtocolSelect" class="mb-2">
             <option value="default">默认 (逗号/空格分隔)</option>
-            <option value="justfloat">justfloat (N*float + 帧尾)</option>
-            <option value="firewater">firewater (文本 + 换行)</option>
+            <option value="justfloat">JustFloat (N*float + 帧尾)</option>
+            <option value="firewater">FireWater (文本 + 换行)</option>
             <option value="custom">自定义</option>
         </select>
 

@@ -418,13 +418,12 @@ export function updateConfig(newConfig) {
 
 export function clear() {
     console.log("Clearing Plot Module (via Destroy & Recreate)...");
-    const currentConfigSnapshot = { ...internalConfig };
     const currentElementId = moduleElementId;
 
     destroy();
 
     if (currentElementId) {
-        create(currentElementId, currentConfigSnapshot);
+        create(currentElementId);
     } else {
         console.error("Cannot re-create plot module: Element ID was not stored.");
     }

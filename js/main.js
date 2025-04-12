@@ -2,7 +2,7 @@
 
 import {
     DEFAULT_MAX_BUFFER_POINTS, MIN_BUFFER_POINTS,
-    DEFAULT_SIM_CHANNELS, DEFAULT_SIM_FREQUENCY, DEFAULT_SIM_AMPLITUDE
+    DEFAULT_SIM_CHANNELS, DEFAULT_SIM_FREQUENCY, DEFAULT_SIM_AMPLITUDE,
 } from './config.js';
 import { debounce } from './utils.js';
 import {
@@ -17,7 +17,7 @@ import * as plotModule from './modules/plot_module.js';
 import * as terminalModule from './modules/terminal_module.js';
 import * as quatModule from './modules/quat_module.js';
 import * as dataProcessor from './modules/data_processing.js';
-import { connectSerial, disconnectSerial, updateSerialParser, handleSerialDisconnectCleanup } from './modules/serial.js';
+import { connectSerial, disconnectSerial, updateSerialParser } from './modules/serial.js';
 import { setupWorkerListeners } from './modules/worker_comms.js';
 
 const appState = {
@@ -160,7 +160,7 @@ return { values: null, frameByteLength: 0 };
                 initialState = { follow: appState.config.followData, numChannels: appState.config.numChannels, maxBufferPoints: appState.config.maxBufferPoints };
             } else if (module === terminalModule) {
                 elementId = 'textModule';
-                initialState = { rawDisplayMode: appState.config.rawDisplayMode, updateDivider: 3 };
+                initialState = { rawDisplayMode: appState.config.rawDisplayMode };
             } else if (module === quatModule) {
                 elementId = 'quatModuleContainer';
                 initialState = { availableChannels: appState.config.numChannels };
@@ -249,52 +249,145 @@ function mainLoop() {
     appState.rAFID = requestAnimationFrame(mainLoop);
 }
 
-function startDataCollection() {
-    if (appState.isCollecting || !appState.dataWorker) return;
+/**
+ * Starts data collection. For WebSerial, attempts to transfer the
+ * ReadableStream from the SerialPort to the worker.
+ */
+async function startDataCollection() { // Added async for potential future await (like getInfo)
+    // --- 1. Pre-checks ---
+    if (appState.isCollecting || !appState.dataWorker) {
+        console.warn("Main: startDataCollection called but already collecting or worker not ready. Aborting.");
+        return;
+    }
     const isSerial = appState.config.currentDataSource === 'webserial';
     const canStartSerial = isSerial && appState.serialPort !== null;
+
+    // --- 1a. Check/Update Simulation Channel Config ---
     const currentSimChannels = parseInt(appState.domElements.simNumChannelsInput?.value || DEFAULT_SIM_CHANNELS);
     if (appState.config.currentDataSource === 'simulated' && appState.config.numChannels !== currentSimChannels) {
+        console.log("Main: Sim channel count changed, applying update before starting simulation...");
         handleSimChannelChange({ target: { value: currentSimChannels } });
     }
-    if (isSerial && !canStartSerial) { updateStatusMessage("状态：错误 - 请先连接串口"); return; }
 
+    // --- 1b. Check if WebSerial can start ---
+    if (isSerial && !canStartSerial) {
+        console.error("Main: Cannot start WebSerial collection, appState.serialPort is null.");
+        updateStatusMessage("状态：错误 - 请先连接串口");
+        return;
+    }
+
+    // --- 2. Set State and Update UI ---
+    console.log("Main: Starting data collection process...");
     appState.isCollecting = true;
     appState.mainThreadDataQueue = [];
     dataProcessor.resetEstimatesAndRate();
     updateStatusMessage("状态：采集中 (Worker)...");
     updateButtonStatesMain();
 
-    const startPayload = {
+    // --- 3. Prepare Payload for Worker ---
+    // Common payload structure
+    const workerPayload = {
         source: appState.config.currentDataSource,
-        config: {},
-        protocol: appState.config.serialProtocol, // 发送选定的协议
-        parserCode: '' // 默认为空
+        config: {}, // Specific config added below
+        protocol: appState.config.serialProtocol,
+        parserCode: '' // Only relevant for custom serial protocol
     };
 
+    // --- 4. Send 'start' message to Worker ---
     if (appState.config.currentDataSource === 'simulated') {
-        startPayload.config = { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude };
-        appState.dataWorker.postMessage({ type: 'start', payload: startPayload });
-    } else if (canStartSerial) {
-        // 如果协议是 'custom'，则发送文本框内容
-        if (appState.config.serialProtocol === 'custom' && appState.domElements.serialParserTextarea) {
-            startPayload.parserCode = appState.domElements.serialParserTextarea.value || '';
-        }
-        // 否则，parserCode 保持为空，Worker 将根据 protocol 字段选择内部实现
-
+        // --- 4a. Simulation Start ---
+        workerPayload.config = {
+            numChannels: appState.config.numChannels,
+            frequency: appState.config.simFrequency,
+            amplitude: appState.config.simAmplitude
+        };
+        console.log("Main: Sending 'start' command to worker for SIMULATED data:", workerPayload);
         try {
-            startPayload.port = appState.serialPort;
-            appState.dataWorker.postMessage({ type: 'start', payload: startPayload }, [appState.serialPort]);
-            appState.serialPort = null; // 清除主线程引用
-        } catch (transferError) {
-            console.error("Main: Error transferring SerialPort:", transferError);
-            updateStatusMessage(`状态：传输端口到 Worker 失败: ${transferError.message}`);
-            appState.isCollecting = false; if (appState.serialPort) disconnectSerial(appState); updateButtonStatesMain(); return;
+            // No transfer needed for simulation
+            appState.dataWorker.postMessage({ type: 'start', payload: workerPayload });
+        } catch (postError) {
+            console.error("Main: Error posting 'start' message for simulation:", postError);
+            updateStatusMessage(`状态：启动模拟失败: ${postError.message}`);
+            appState.isCollecting = false;
+            updateButtonStatesMain();
+            return;
         }
-    }
-    console.log("Data collection active...");
-}
 
+    } else if (canStartSerial) {
+        // --- 4b. WebSerial Start (Attempt ReadableStream Transfer) ---
+
+        // Include custom parser code if selected
+        if (appState.config.serialProtocol === 'custom' && appState.domElements.serialParserTextarea) {
+            workerPayload.parserCode = appState.domElements.serialParserTextarea.value || '';
+            console.log("Main: Including custom parser code in payload.");
+        } else {
+            console.log(`Main: Using built-in parser logic in worker for protocol: ${appState.config.serialProtocol}`);
+        }
+
+        // --- Get the ReadableStream ---
+        const readableStream = appState.serialPort.readable;
+
+        // --- Validate the Stream ---
+        if (!readableStream) {
+            console.error("Main: FATAL - appState.serialPort.readable is null or undefined! Cannot transfer stream.");
+            updateStatusMessage("状态：错误 - 无法获取串口读取流");
+            appState.isCollecting = false;
+            disconnectSerial(appState); // Clean up the port
+            updateButtonStatesMain();
+            return;
+        }
+        console.log("Main: Obtained ReadableStream:", readableStream);
+        // Note: Checking readableStream.locked here might be misleading, transfer handles ownership.
+
+        // --- Add Stream to Payload (using a different property name) ---
+        workerPayload.readableStream = readableStream; // Add the stream to the payload
+
+        // Log payload structure (omitting stream details)
+        console.log("Main: Payload prepared for stream transfer:", { ...workerPayload, readableStream: '[ReadableStream Object]' });
+
+        // --- Attempt the postMessage with stream transfer ---
+        try {
+            console.log("Main: Executing postMessage with ReadableStream transfer...");
+            // Use a distinct message type, e.g., 'startSerialStream'
+            // Transfer ONLY the readableStream
+            appState.dataWorker.postMessage({ type: 'startSerialStream', payload: workerPayload }, [readableStream]);
+
+            // If the above line succeeds without throwing:
+            console.log("%cMain: postMessage successful (ReadableStream transfer initiated). Main thread retains SerialPort object for closing.", "color: green;");
+            // DO NOT set appState.serialPort = null here. The main thread still needs it to close the port later.
+            // The 'readable' property of the main thread's port object is now likely unusable as ownership transferred.
+
+        } catch (transferError) {
+            // --- Handle errors during the stream transfer ---
+            console.error("%cMain: Error occurred during postMessage stream transfer!", "color: red; font-weight: bold;", transferError);
+            console.error("Main: Error Name:", transferError.name);
+            console.error("Main: Error Message:", transferError.message);
+            console.error("Main: Payload that failed (stream omitted):", { ...workerPayload, readableStream: '[ReadableStream Object]' });
+            console.error("Main: The ReadableStream object that failed transfer:", workerPayload.readableStream);
+            if (transferError.stack) {
+                console.error("Main: Error Stack Trace:", transferError.stack);
+            }
+
+            // --- Reset state and handle cleanup ---
+            updateStatusMessage(`状态：传输读取流到 Worker 失败: ${transferError.message}`);
+            appState.isCollecting = false; // Collection failed
+
+            // Main thread still holds the port reference if stream transfer failed. Clean it up.
+            if (appState.serialPort) {
+                console.warn("Main: Stream transfer failed. Disconnecting/cleaning up the port held by main thread.");
+                disconnectSerial(appState);
+            } else {
+                console.warn("Main: Stream transfer failed, but appState.serialPort was unexpectedly null.");
+                updateButtonStatesMain(); // Still update UI state
+            }
+            return; // Stop execution
+        }
+    } // End of WebSerial start logic
+
+    // --- 5. Final Log if Start Seems Successful ---
+    console.log("Main: Data collection start initiated. Worker should be processing...");
+
+} // --- End of startDataCollection ---
 function stopDataCollection() {
     if (!appState.isCollecting) return;
     console.warn("MAIN THREAD: Stopping data collection...");
@@ -304,8 +397,10 @@ function stopDataCollection() {
     mainLoop(); // Process final data
     updateStatusMessage("状态：已停止");
     if (appState.config.currentDataSource === 'webserial') {
-        handleSerialDisconnectCleanup(appState);
-    } else { updateButtonStatesMain(); }
+        appState.serialPort.close()
+        // handleSerialDisconnectCleanup(appState);
+    }
+    updateButtonStatesMain();
     updateBufferStatusUI(dataProcessor.getBufferLength(), appState.config.maxBufferPoints, false, null, null);
     console.warn("MAIN THREAD: Collection stopped.");
 }
@@ -314,6 +409,7 @@ function stopDataCollection() {
 function handleDataSourceChange(event) {
     const newSource = event.target.value; if (appState.isCollecting) stopDataCollection();
     appState.config.currentDataSource = newSource; updateControlVisibility(newSource); updateButtonStatesMain();
+    handleClearData();
 }
 function handleStartStop() { if (appState.isCollecting) stopDataCollection(); else startDataCollection(); }
 async function handleConnectSerial() { if (appState.serialPort) await disconnectSerial(appState); else await connectSerial(appState); }
