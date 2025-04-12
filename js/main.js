@@ -88,7 +88,7 @@ async function initializeApp() {
             throw new Error("Essential containers failed load.");
         }
         console.log("HTML partials loaded.");
-    } catch(error) {
+    } catch (error) {
         console.error("Partial loading failed.", error);
         updateStatusMessage("Error: Failed to load UI. Please refresh.");
         return;
@@ -97,20 +97,20 @@ async function initializeApp() {
 
     try {
         if (!appState.dataWorker && !appState.workerUrl) {
-             const workerResponse = await fetch('js/worker/data_worker.js');
-             if (!workerResponse.ok) throw new Error(`Failed to fetch worker script: ${workerResponse.statusText}`);
-             const workerCode = await workerResponse.text();
-             const blob = new Blob([workerCode], { type: 'application/javascript' });
-             appState.workerUrl = URL.createObjectURL(blob);
-             appState.dataWorker = new Worker(appState.workerUrl);
-             console.log("Data worker created.");
+            const workerResponse = await fetch('js/worker/data_worker.js');
+            if (!workerResponse.ok) throw new Error(`Failed to fetch worker script: ${workerResponse.statusText}`);
+            const workerCode = await workerResponse.text();
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            appState.workerUrl = URL.createObjectURL(blob);
+            appState.dataWorker = new Worker(appState.workerUrl);
+            console.log("Data worker created.");
         }
         setupWorkerListeners(appState.dataWorker, appState, stopDataCollection);
     } catch (error) {
         console.error("Worker Initialization Error:", error);
         updateStatusMessage(`Error: Worker initialization failed - ${error.message}`);
-        if(appState.domElements.startStopButton) appState.domElements.startStopButton.disabled = true;
-        if(appState.domElements.connectSerialButton) appState.domElements.connectSerialButton.disabled = true;
+        if (appState.domElements.startStopButton) appState.domElements.startStopButton.disabled = true;
+        if (appState.domElements.connectSerialButton) appState.domElements.connectSerialButton.disabled = true;
         return;
     }
 
@@ -160,7 +160,7 @@ return { values: null, frameByteLength: 0 };
                 initialState = { follow: appState.config.followData, numChannels: appState.config.numChannels, maxBufferPoints: appState.config.maxBufferPoints };
             } else if (module === terminalModule) {
                 elementId = 'textModule';
-                initialState = { rawDisplayMode: appState.config.rawDisplayMode , updateDivider: 3};
+                initialState = { rawDisplayMode: appState.config.rawDisplayMode, updateDivider: 3 };
             } else if (module === quatModule) {
                 elementId = 'quatModuleContainer';
                 initialState = { availableChannels: appState.config.numChannels };
@@ -182,7 +182,7 @@ return { values: null, frameByteLength: 0 };
 
     // 设置布局和大小调整
     const mainResizeHandler = () => {
-        displayModules.forEach(module => { try { module.resize(); } catch(e){ /* ignore */ }});
+        displayModules.forEach(module => { try { module.resize(); } catch (e) { /* ignore */ } });
     };
     const debouncedResizeHandler = debounce(mainResizeHandler, 150);
     initializeSplitLayout({
@@ -194,6 +194,24 @@ return { values: null, frameByteLength: 0 };
     setupResizeObserver(debouncedResizeHandler);
     window.addEventListener('resize', debouncedResizeHandler);
     mainResizeHandler(); // 初始调整
+
+    // --- Register Service Worker ---
+    if ('serviceWorker' in navigator) {
+        // 使用 window.load 事件确保页面及其所有资源（如图标）加载完毕后再注册
+        // 这可以避免 Service Worker 缓存不完整的资源
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js') // 注册根目录下的 sw.js
+                .then((registration) => {
+                    console.log('[Main] Service Worker registered successfully with scope:', registration.scope);
+                })
+                .catch((error) => {
+                    console.error('[Main] Service Worker registration failed:', error);
+                });
+        });
+    } else {
+        console.warn('[Main] Service Worker not supported in this browser.');
+    }
+    // --- End Service Worker Registration ---
 
     // 启动主循环
     if (!appState.rAFID) {
@@ -223,8 +241,8 @@ function mainLoop() {
         );
 
         updateBufferStatusUI(
-             dataProcessor.getBufferLength(), appState.config.maxBufferPoints,
-             appState.isCollecting, dataProcessor.getEstimateRemaining(), dataProcessor.getEstimateTotal()
+            dataProcessor.getBufferLength(), appState.config.maxBufferPoints,
+            appState.isCollecting, dataProcessor.getEstimateRemaining(), dataProcessor.getEstimateTotal()
         );
     }
 
@@ -237,7 +255,7 @@ function startDataCollection() {
     const canStartSerial = isSerial && appState.serialPort !== null;
     const currentSimChannels = parseInt(appState.domElements.simNumChannelsInput?.value || DEFAULT_SIM_CHANNELS);
     if (appState.config.currentDataSource === 'simulated' && appState.config.numChannels !== currentSimChannels) {
-         handleSimChannelChange({ target: { value: currentSimChannels } });
+        handleSimChannelChange({ target: { value: currentSimChannels } });
     }
     if (isSerial && !canStartSerial) { updateStatusMessage("状态：错误 - 请先连接串口"); return; }
 
@@ -305,10 +323,10 @@ function handleUpdateParser() {
     } else {
         console.warn("Update Parser ignored: Not in 'custom' protocol mode.");
         if (appState.domElements.parserStatus) {
-             if(appState.domElements.builtInParserStatus) {
+            if (appState.domElements.builtInParserStatus) {
                 appState.domElements.builtInParserStatus.textContent = '状态：请先选择 "自定义" 协议再更新';
                 appState.domElements.builtInParserStatus.classList.add('text-red-600');
-             }
+            }
         }
     }
 }
@@ -320,8 +338,8 @@ function handleProtocolChange(event) {
         console.log("Serial protocol changed to:", newProtocol);
         updateParserVisibility();
         if (appState.isCollecting) {
-             console.warn("Protocol changed while collecting. Stopping collection. Restart to apply.");
-             stopDataCollection();
+            console.warn("Protocol changed while collecting. Stopping collection. Restart to apply.");
+            stopDataCollection();
         }
         updateButtonStatesMain();
     }
@@ -333,9 +351,9 @@ function handleBufferDurationChange(event) {
     if (v && v >= MIN_BUFFER_POINTS) {
         if (appState.config.maxBufferPoints !== v) {
             appState.config.maxBufferPoints = v;
-            displayModules.forEach(m => { if(m.updateConfig) m.updateConfig({ maxBufferPoints: v }); });
-            dataProcessor.calculateBufferEstimate( dataProcessor.getCurrentDataRate(), dataProcessor.getBufferLength(), v, appState.isCollecting );
-            updateBufferStatusUI( dataProcessor.getBufferLength(), v, appState.isCollecting, dataProcessor.getEstimateRemaining(), dataProcessor.getEstimateTotal() );
+            displayModules.forEach(m => { if (m.updateConfig) m.updateConfig({ maxBufferPoints: v }); });
+            dataProcessor.calculateBufferEstimate(dataProcessor.getCurrentDataRate(), dataProcessor.getBufferLength(), v, appState.isCollecting);
+            updateBufferStatusUI(dataProcessor.getBufferLength(), v, appState.isCollecting, dataProcessor.getEstimateRemaining(), dataProcessor.getEstimateTotal());
         }
     } else { alert(`Buffer points must be >= ${MIN_BUFFER_POINTS}.`); if (maxPointsInput) maxPointsInput.value = appState.config.maxBufferPoints; }
 }
@@ -348,10 +366,12 @@ function handleDownloadCsv() {
 
 function handleClearData() {
     if (appState.isCollecting) stopDataCollection();
-    displayModules.forEach(module => { try {
-        console.log("Clearing module", module);
-        module.clear();
-    } catch(e){ console.warn("Error clearing module", e); }});
+    displayModules.forEach(module => {
+        try {
+            console.log("Clearing module", module);
+            module.clear();
+        } catch (e) { console.warn("Error clearing module", e); }
+    });
     console.log("Clearing data processor...");
     dataProcessor.clearBuffer();
     console.log("Clearing estimate...");
@@ -371,19 +391,23 @@ function handleSimChannelChange(event) {
         if (appState.isCollecting && appState.config.currentDataSource === 'simulated' && appState.dataWorker) {
             appState.dataWorker.postMessage({ type: 'updateSimConfig', payload: { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude } });
         }
-        displayModules.forEach(m => { if(m.updateConfig) m.updateConfig({ availableChannels: newChannelCount, numChannels: newChannelCount }); });
+        displayModules.forEach(m => { if (m.updateConfig) m.updateConfig({ availableChannels: newChannelCount, numChannels: newChannelCount }); });
         updateButtonStatesMain();
     }
 }
 function handleSimFrequencyChange(event) {
-     const newFrequency = parseInt(event.target.value) || DEFAULT_SIM_FREQUENCY; if(appState.config.simFrequency !== newFrequency){
+    const newFrequency = parseInt(event.target.value) || DEFAULT_SIM_FREQUENCY; if (appState.config.simFrequency !== newFrequency) {
         appState.config.simFrequency = newFrequency; if (appState.isCollecting && appState.config.currentDataSource === 'simulated' && appState.dataWorker) {
-            appState.dataWorker.postMessage({ type: 'updateSimConfig', payload: { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude } }); } }
+            appState.dataWorker.postMessage({ type: 'updateSimConfig', payload: { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude } });
+        }
+    }
 }
 function handleSimAmplitudeChange(event) {
-     const newAmplitude = parseFloat(event.target.value) || DEFAULT_SIM_AMPLITUDE; if(appState.config.simAmplitude !== newAmplitude){
+    const newAmplitude = parseFloat(event.target.value) || DEFAULT_SIM_AMPLITUDE; if (appState.config.simAmplitude !== newAmplitude) {
         appState.config.simAmplitude = newAmplitude; if (appState.isCollecting && appState.config.currentDataSource === 'simulated' && appState.dataWorker) {
-            appState.dataWorker.postMessage({ type: 'updateSimConfig', payload: { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude } }); } }
+            appState.dataWorker.postMessage({ type: 'updateSimConfig', payload: { numChannels: appState.config.numChannels, frequency: appState.config.simFrequency, amplitude: appState.config.simAmplitude } });
+        }
+    }
 }
 
 // --- Helper: Update Button States ---
@@ -428,7 +452,7 @@ function updateButtonStatesMain() {
 
         // 禁用或启用波特率、数据位等基础选项
         domElements.serialOptionsDiv.querySelectorAll('input[type="number"], select:not(#serialProtocolSelect)').forEach(el => {
-             el.disabled = disableSerialOptions;
+            el.disabled = disableSerialOptions;
         });
 
         // 单独处理协议选择框
@@ -445,7 +469,7 @@ function updateButtonStatesMain() {
             domElements.updateParserButton.disabled = disableCustomParser;
         }
     } else {
-         console.warn("updateButtonStatesMain: domElements.serialOptionsDiv not found!"); // 添加警告
+        console.warn("updateButtonStatesMain: domElements.serialOptionsDiv not found!"); // 添加警告
     }
 
 
@@ -458,7 +482,7 @@ function updateButtonStatesMain() {
 // --- Global Cleanup ---
 window.addEventListener('beforeunload', () => {
     console.log("Page unloading. Cleaning up...");
-    displayModules.forEach(module => { try { module.destroy(); } catch(e){ console.error("Error destroying module", e);} });
+    displayModules.forEach(module => { try { module.destroy(); } catch (e) { console.error("Error destroying module", e); } });
     if (appState.dataWorker) appState.dataWorker.terminate();
     if (appState.workerUrl) URL.revokeObjectURL(appState.workerUrl);
     if (appState.serialPort) disconnectSerial(appState); // Attempt disconnect
