@@ -2,7 +2,7 @@
     "name": "Web Serial Plotter",
     "short_name": "SerialPlot",
     "description": "A high-performance web-based plotter using Web Serial and TimeChart.",
-    "start_url": "web-serial-plotter/index.html",
+    "start_url": "index.html",
     "display": "standalone",
     "background_color": "#f3f4f6",
     "theme_color": "#3b82f6",
