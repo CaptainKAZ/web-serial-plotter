@@ -119,8 +119,8 @@
 
 * **内置协议:**
     * **默认:** 解析以换行符 (`\n` 或 `\r\n`) 结束，由逗号或空格分隔的数值行。
-    * **JustFloat:** 解析 `N` 个 4 字节小端浮点数后跟特定帧尾 `[0x00, 0x00, 0x80, 0x7f]` 的二进制帧。
-    * **FireWater:** 解析形如 `<任意前缀>:<数值1>,<数值2>,...,<数值N>\n` 的文本行。
+    * [**JustFloat:**](https://www.vofa.plus/docs/learning/dataengines/justfloat/) 解析 `N` 个 4 字节小端浮点数后跟特定帧尾 `[0x00, 0x00, 0x80, 0x7f]` 的二进制帧。
+    * [**FireWater:**](https://www.vofa.plus/docs/learning/dataengines/firewater) 解析形如 `<任意前缀>:<数值1>,<数值2>,...,<数值N>\n` 的文本行。
 * **自定义解析器函数 (当协议选择 "自定义" 时):**
     * 您需要提供一个 JavaScript 函数体。该函数接收一个 `Uint8Array` 类型的参数 `uint8ArrayData`，代表从串口接收到的原始字节数据块。
     * 函数必须返回一个对象，格式为：`{ values: number[] | null, frameByteLength: number }`。
