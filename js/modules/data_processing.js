@@ -1,7 +1,6 @@
 // js/modules/data_processing.js
 // Manages the data buffer for CSV export and calculates rate/estimates.
 
-import { DEFAULT_MAX_BUFFER_POINTS, ESTIMATION_UPDATE_INTERVAL_MS } from '../config.js';
 import { formatSecondsToHMS } from '../utils.js';
 
 // --- Module State ---
