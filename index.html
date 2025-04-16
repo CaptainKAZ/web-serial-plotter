@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN"> <head>
+<html lang="zh-CN">
+
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高性能WebSerial绘图器 (TimeChart)</title> <script src="https://cdn.tailwindcss.com"></script>
+    <title>高性能WebSerial串口绘图工具</title>
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         // Keep Tailwind config
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], }, }, }, }
@@ -28,27 +32,27 @@
 
     <link rel="stylesheet" href="css/styles.css">
 
-    </head>
+</head>
 
-    <body>
-        <div class="main-container">
-            <div id="control-panel" class="control-panel">
+<body>
+    <div class="main-container">
+        <div id="control-panel" class="control-panel">
+        </div>
+
+        <div id="displayAreaContainer" class="display-area-container">
+            <div id="displayArea" class="display-area">
+                <div id="plotModule">
                 </div>
-    
-            <div id="displayAreaContainer" class="display-area-container">
-                <div id="displayArea" class="display-area">
-                     <div id="plotModule">
-                         </div>
-                     <div id="bottomRow" class="split">
-                         <div id="textModule">
-                             </div>
-                         <div id="quatModule">
-                             </div>
-                     </div>
+                <div id="bottomRow" class="split">
+                    <div id="textModule">
+                    </div>
+                    <div id="quatModule">
+                    </div>
                 </div>
             </div>
         </div>
-        <script type="module" src="js/main.js"></script>
-    </body>
+    </div>
+    <script type="module" src="js/main.js"></script>
+</body>
 
 </html>

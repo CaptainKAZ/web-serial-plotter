@@ -2,7 +2,7 @@
 
 import {
     DEFAULT_MAX_BUFFER_POINTS, MIN_BUFFER_POINTS,
-    DEFAULT_SIM_CHANNELS, DEFAULT_SIM_FREQUENCY, DEFAULT_SIM_AMPLITUDE,
+    DEFAULT_SIM_CHANNELS, DEFAULT_SIM_FREQUENCY, DEFAULT_SIM_AMPLITUDE, DEFAULT_BAUD_RATE
 } from './config.js';
 import { debounce } from './utils.js';
 import {
@@ -26,6 +26,7 @@ const appState = {
     workerUrl: null,
     mainThreadDataQueue: [],
     serialPort: null,
+    lastValidBaudRate: String(DEFAULT_BAUD_RATE), // 存储上一个有效的波特率（字符串形式）
     config: {
         currentDataSource: 'simulated',
         numChannels: DEFAULT_SIM_CHANNELS,
@@ -55,7 +56,7 @@ function queryDOMElements() {
         webSerialControls: get('webSerialControls'), serialOptionsDiv: get('serialOptions'), // 正确获取
         simNumChannelsInput: get('simNumChannels'), simFrequencyInput: get('simFrequency'),
         simAmplitudeInput: get('simAmplitude'), connectSerialButton: get('connectSerialButton'),
-        baudRateInput: get('baudRateInput'), dataBitsSelect: get('dataBitsSelect'),
+        baudRateInput: get('baudRateInput'),
         stopBitsSelect: get('stopBitsSelect'), paritySelect: get('paritySelect'),
         flowControlSelect: get('flowControlSelect'),
         serialProtocolSelect: get('serialProtocolSelect'), // 新增: 协议选择框
@@ -123,6 +124,8 @@ async function initializeApp() {
     appState.config.numChannels = parseInt(appState.domElements.simNumChannelsInput?.value || DEFAULT_SIM_CHANNELS);
     appState.config.simFrequency = parseInt(appState.domElements.simFrequencyInput?.value || DEFAULT_SIM_FREQUENCY);
     appState.config.simAmplitude = parseFloat(appState.domElements.simAmplitudeInput?.value || DEFAULT_SIM_AMPLITUDE);
+    appState.lastValidBaudRate = appState.domElements.baudRateInput?.value || String(DEFAULT_BAUD_RATE);
+
 
     // 设置解析器文本框的占位符
     if (appState.domElements.serialParserTextarea) {
@@ -169,6 +172,44 @@ return { values: null, frameByteLength: 0 };
             else { console.error(`Cannot create module, target element ID "${elementId}" not found.`); }
         } catch (error) { console.error("Error creating module instance:", error); }
     });
+
+    // --- Baud Rate Input 的 focus 和 blur 事件监听 ---
+    if (appState.domElements.baudRateInput) {
+        const baudRateInput = appState.domElements.baudRateInput;
+
+        // 获得焦点时清空
+        baudRateInput.addEventListener('focus', (event) => {
+            // 存储当前有效值（如果它不是空的）
+            const currentValue = event.target.value;
+            if (currentValue) {
+                const numericValue = parseInt(currentValue);
+                if (!isNaN(numericValue) && numericValue > 0) {
+                    appState.lastValidBaudRate = currentValue;
+                }
+            }
+            // 清空输入框
+            event.target.value = '';
+            console.log("Baud rate input focused, cleared. Last valid:", appState.lastValidBaudRate);
+        });
+
+        // 失去焦点时检查并恢复
+        baudRateInput.addEventListener('blur', (event) => {
+            const currentValue = event.target.value;
+            const numericValue = parseInt(currentValue);
+
+            if (!currentValue || isNaN(numericValue) || numericValue <= 0) {
+                // 如果当前值为空或无效，恢复上一个有效值
+                console.log(`Baud rate input blurred empty/invalid, restoring: ${appState.lastValidBaudRate}`);
+                event.target.value = appState.lastValidBaudRate;
+            } else {
+                // 如果当前值有效，则更新 lastValidBaudRate
+                appState.lastValidBaudRate = currentValue;
+                console.log(`Baud rate input blurred with valid value: ${currentValue}`);
+            }
+        });
+        console.log("Baud rate input focus/blur listeners added.");
+    }
+    // --- 结束 Baud Rate Input 事件监听 ---
 
     // 设置UI可见性和事件监听器
     updateControlVisibility(appState.config.currentDataSource); // 这会调用 updateParserVisibility
@@ -427,17 +468,56 @@ function handleUpdateParser() {
     }
 }
 
+/**
+ * Sends a message to the data worker to update its active serial parser.
+ * @param {string} newProtocol - The new protocol name ('default', 'justfloat', 'custom', etc.).
+ */
+function sendParserUpdateToWorker(newProtocol) {
+    if (!appState.dataWorker) {
+        console.error("Cannot update worker parser: Worker not available.");
+        updateStatusMessage("错误：无法更新 Worker 解析器。");
+        return;
+    }
+
+    const payload = { protocol: newProtocol };
+    if (newProtocol === 'custom') {
+        payload.parserCode = appState.domElements.serialParserTextarea?.value || '';
+        if (!payload.parserCode) {
+            console.warn("Custom protocol selected, but parser code is empty.");
+            // Optionally show a warning UI message
+        }
+    }
+
+    console.log("Main: Sending 'updateActiveParser' to worker:", payload);
+    updateStatusMessage("状态：正在更新 Worker 解析器..."); // Status: Updating worker parser...
+    try {
+        appState.dataWorker.postMessage({ type: 'updateActiveParser', payload });
+    } catch (e) {
+        console.error("Error sending updateActiveParser message:", e);
+        updateStatusMessage("错误: 发送解析器更新失败。");
+    }
+}
 function handleProtocolChange(event) {
     const newProtocol = event.target.value;
     if (appState.config.serialProtocol !== newProtocol) {
         appState.config.serialProtocol = newProtocol;
         console.log("Serial protocol changed to:", newProtocol);
-        updateParserVisibility();
+        updateParserVisibility(); // 更新自定义部分可见性
+
         if (appState.isCollecting) {
-            console.warn("Protocol changed while collecting. Stopping collection. Restart to apply.");
-            stopDataCollection();
+            console.warn("协议在采集中被更改。建议停止并重新开始采集以确保解析一致性。正在尝试动态更新 Worker...");
+            // 尝试动态更新 Worker（如果 Worker 支持）
+            sendParserUpdateToWorker(newProtocol);
+        } else if (appState.serialPort || (appState.config.currentDataSource === 'webserial' && !appState.serialPort /* Port transferred? */)) {
+            // 已连接但未采集，更新 Worker
+            console.log("协议在连接后、采集前更改。正在更新 Worker 解析器...");
+            sendParserUpdateToWorker(newProtocol);
+        } else {
+            // 未连接，仅更新配置
+            console.log("协议已更改，将在下次连接或启动时应用。");
         }
-        updateButtonStatesMain();
+
+        updateButtonStatesMain(); // 更新按钮状态（例如自定义解析器按钮的禁用状态）
     }
 }
 
@@ -510,11 +590,17 @@ function handleSimAmplitudeChange(event) {
 function updateButtonStatesMain() {
     const { isCollecting, config, serialPort } = appState;
     const { currentDataSource, serialProtocol } = config;
-    const domElements = appState.domElements; // 使用存储的引用
+    const domElements = appState.domElements;
 
-    if (!domElements || Object.keys(domElements).length === 0) return;
+    if (!domElements || Object.keys(domElements).length === 0) {
+        console.warn("updateButtonStatesMain called before DOM elements were queried.");
+        return; // 防止在初始化早期出错
+    }
+
     const isSerial = currentDataSource === 'webserial';
+    // isSerialConnectedOnMain 表示主线程是否还持有端口引用（即已连接但未开始采集/传输）
     const isSerialConnectedOnMain = isSerial && serialPort !== null;
+    // dataBufferHasData 表示 CSV 缓冲区是否有数据
     const dataBufferHasData = dataProcessor.getBufferLength() > 0;
 
     // Start/Stop Button
@@ -522,57 +608,69 @@ function updateButtonStatesMain() {
         if (isCollecting) {
             domElements.startStopButton.textContent = "结束采集";
             domElements.startStopButton.disabled = false;
-            domElements.startStopButton.className = 'w-full mb-2 bg-red-500 hover:bg-red-600';
+            domElements.startStopButton.className = 'w-full mb-2 bg-red-500 hover:bg-red-600 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70';
         } else {
             domElements.startStopButton.textContent = "开始采集";
-            domElements.startStopButton.className = 'w-full mb-2 bg-blue-500 hover:bg-blue-600';
-            domElements.startStopButton.disabled = (isSerial && !isSerialConnectedOnMain); // 串口模式下未连接则禁用开始
+            domElements.startStopButton.className = 'w-full mb-2 bg-blue-500 hover:bg-blue-600 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70';
+            // 禁用条件：是串口模式但主线程未连接端口
+            domElements.startStopButton.disabled = (isSerial && !isSerialConnectedOnMain);
         }
     }
 
     // Connect/Disconnect Button
     if (domElements.connectSerialButton) {
-        domElements.connectSerialButton.disabled = !isSerial || isCollecting; // 非串口模式或采集中禁用
-        if (serialPort) { // 主线程持有端口引用（已连接未传输）
+        // 禁用条件：不是串口模式，或者正在采集中
+        domElements.connectSerialButton.disabled = !isSerial || isCollecting;
+        if (serialPort) { // 主线程持有端口（已连接，未开始）
             domElements.connectSerialButton.textContent = "断开串口";
-            domElements.connectSerialButton.className = 'w-full bg-yellow-500 hover:bg-yellow-600';
-        } else { // 未连接或已传输给 Worker
+            domElements.connectSerialButton.className = 'w-full bg-yellow-500 hover:bg-yellow-600 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70';
+        } else { // 未连接，或端口已传输给 Worker
             domElements.connectSerialButton.textContent = "连接串口";
-            domElements.connectSerialButton.className = 'w-full bg-blue-500 hover:bg-blue-600';
+            domElements.connectSerialButton.className = 'w-full bg-blue-500 hover:bg-blue-600 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70';
         }
     }
 
-    // Serial Options Container (使用正确的变量名 domElements.serialOptionsDiv)
+    // Serial Options Container
     if (domElements.serialOptionsDiv) {
-        const disableSerialOptions = !isSerial || isCollecting || isSerialConnectedOnMain; // 禁用条件
+        // 核心参数（波特率、数据位等）禁用条件：已连接（主线程持有或已传输）或正在采集
+        const disableCoreSerialOptions = isSerialConnectedOnMain || isCollecting;
 
-        // 禁用或启用波特率、数据位等基础选项
-        domElements.serialOptionsDiv.querySelectorAll('input[type="number"], select:not(#serialProtocolSelect)').forEach(el => {
-            el.disabled = disableSerialOptions;
+        // 禁用波特率选择
+        if (domElements.baudRateInput) {
+            domElements.baudRateInput.disabled = disableCoreSerialOptions;
+        }
+        // 禁用数据位、停止位、校验位、流控制
+        domElements.serialOptionsDiv.querySelectorAll('#dataBitsSelect, #stopBitsSelect, #paritySelect, #flowControlSelect').forEach(el => {
+            if (el) el.disabled = disableCoreSerialOptions;
         });
 
-        // 单独处理协议选择框
+
+        // 协议选择框禁用条件：仅在采集中禁用
         if (domElements.serialProtocolSelect) {
-            domElements.serialProtocolSelect.disabled = isCollecting || isSerialConnectedOnMain; // 采集中或已连接时禁用协议切换
+            domElements.serialProtocolSelect.disabled = isCollecting;
         }
 
-        // 单独处理自定义解析器部分
-        const disableCustomParser = disableSerialOptions || serialProtocol !== 'custom';
+        // 自定义解析器相关控件禁用条件：采集中，或者协议不是 'custom'
+        const disableCustomParserInputs = isCollecting || serialProtocol !== 'custom';
         if (domElements.serialParserTextarea) {
-            domElements.serialParserTextarea.disabled = disableCustomParser;
+            domElements.serialParserTextarea.disabled = disableCustomParserInputs;
         }
         if (domElements.updateParserButton) {
-            domElements.updateParserButton.disabled = disableCustomParser;
+            domElements.updateParserButton.disabled = disableCustomParserInputs;
         }
     } else {
-        console.warn("updateButtonStatesMain: domElements.serialOptionsDiv not found!"); // 添加警告
+        console.warn("updateButtonStatesMain: domElements.serialOptionsDiv not found!");
     }
-
 
     // Download/Clear Buttons
     if (domElements.downloadCsvButton) domElements.downloadCsvButton.disabled = !dataBufferHasData;
-    if (domElements.clearDataButton) domElements.clearDataButton.disabled = !dataBufferHasData && !isCollecting; // 仅在有数据或采集中时启用清除
+    if (domElements.clearDataButton) {
+        // 清除按钮：仅当有数据或正在采集时才启用
+        domElements.clearDataButton.disabled = !dataBufferHasData && !isCollecting;
+        domElements.clearDataButton.className = 'w-full bg-red-500 hover:bg-red-600 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70'; // 添加基础样式控制
+    }
 }
+
 
 
 // --- Global Cleanup ---

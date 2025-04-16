@@ -1,6 +1,5 @@
 // js/modules/ui.js
 
-import { debounce } from '../utils.js';
 import { formatSecondsToHMS } from '../utils.js'; // Assuming updateBufferStatusUI is here
 
 // --- Top-level element references (if needed for layout/split) ---
@@ -87,7 +86,7 @@ export function updateControlVisibility(currentDataSource) {
     if (wsControls) wsControls.style.display = currentDataSource === 'webserial' ? 'block' : 'none';
     // Also update parser visibility based on initial protocol selection if webserial is shown
     if (currentDataSource === 'webserial') {
-         updateParserVisibility();
+        updateParserVisibility();
     }
 }
 
@@ -186,11 +185,11 @@ export function updateParserVisibility() {
 
         // 根据当前选择更新状态文本
         if (!isCustom) {
-             const selectedOptionText = protocolSelect.options[protocolSelect.selectedIndex].text;
-             builtInParserStatus.textContent = `状态：使用内置协议 "${selectedOptionText}"。`;
-             builtInParserStatus.classList.remove('text-red-600', 'text-green-600'); // 重置颜色
+            const selectedOptionText = protocolSelect.options[protocolSelect.selectedIndex].text;
+            builtInParserStatus.textContent = `状态：使用内置协议 "${selectedOptionText}"。`;
+            builtInParserStatus.classList.remove('text-red-600', 'text-green-600'); // 重置颜色
         } else {
-             // 自定义区域内的 parserStatus 会显示 Worker 状态
+            // 自定义区域内的 parserStatus 会显示 Worker 状态
         }
     }
 }

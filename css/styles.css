@@ -5,17 +5,22 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     height: 100%;
     margin: 0;
-    overflow: hidden; /* Prevent body scrollbars */
-    font-family: 'Inter', sans-serif; /* Base font */
-    background-color: #f3f4f6; /* Default background */
+    overflow: hidden;
+    /* Prevent body scrollbars */
+    font-family: 'Inter', sans-serif;
+    /* Base font */
+    background-color: #f3f4f6;
+    /* Default background */
     overflow-x: hidden;
 }
 
 body {
-    display: flex; /* Use flex for overall layout if needed */
+    display: flex;
+    /* Use flex for overall layout if needed */
     position: relative;
 }
 
@@ -26,14 +31,18 @@ body {
     height: 100%;
     padding: 1rem;
     gap: 1rem;
-    overflow: hidden; /* 确保内容不会溢出 main-container */
-    width: 100%; /* 明确宽度 */
+    overflow: hidden;
+    /* 确保内容不会溢出 main-container */
+    width: 100%;
+    /* 明确宽度 */
 }
 
 .control-panel {
-    width: 350px; /* Fixed width for control panel */
+    width: 350px;
+    /* Fixed width for control panel */
     min-width: 250px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
+    /* Prevent shrinking */
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -41,13 +50,15 @@ body {
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    overflow-y: auto; /* Allow scrolling if content exceeds height */
+    overflow-y: auto;
+    /* Allow scrolling if content exceeds height */
 }
 
 .display-area-container {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Allow display area to take remaining width */
+    flex: 1;
+    /* Allow display area to take remaining width */
     min-width: 300px;
     overflow: hidden;
 }
@@ -55,11 +66,13 @@ body {
 .display-area {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Allow inner display area to fill its container */
+    flex: 1;
+    /* Allow inner display area to fill its container */
     overflow: hidden;
     width: 100%;
     height: 100%;
-    position: relative; /* Add positioning context */
+    position: relative;
+    /* Add positioning context */
 }
 
 /* --- Placeholders & Split Targets Layout --- */
@@ -68,36 +81,51 @@ body {
 #bottomRow {
     display: flex;
     flex-direction: row;
-    flex: 1 1 35%; /* Default size basis */
+    flex: 1 1 35%;
+    /* Default size basis */
     min-height: 150px;
     overflow: hidden;
-    position: relative; /* Add positioning context */
+    position: relative;
+    /* Add positioning context */
 }
+
 #text-module-placeholder,
 #quaternion-module-placeholder {
-     display: flex; /* Use flex */
-     position: relative;
-     overflow: hidden;
+    display: flex;
+    /* Use flex */
+    position: relative;
+    overflow: hidden;
 }
 
 
 /* Vertical Split Targets Sizing */
 #plot-module-placeholder {
-    flex: 1 1 65%; /* Default size basis, allow shrink/grow */
-    min-height: 150px; /* Minimum height */
-    flex-direction: column; /* Assume content inside flows top-down */
+    flex: 1 1 65%;
+    /* Default size basis, allow shrink/grow */
+    min-height: 150px;
+    /* Minimum height */
+    flex-direction: column;
+    /* Assume content inside flows top-down */
 }
+
 #bottomRow {
-    flex: 1 1 35%; /* Default size basis, allow shrink/grow */
-    min-height: 150px; /* Minimum height */
-    flex-direction: row; /* Children (text/quat placeholders) side-by-side */
+    flex: 1 1 35%;
+    /* Default size basis, allow shrink/grow */
+    min-height: 150px;
+    /* Minimum height */
+    flex-direction: row;
+    /* Children (text/quat placeholders) side-by-side */
 }
+
 /* Horizontal Split Targets Sizing */
 #text-module-placeholder,
 #quaternion-module-placeholder {
-     flex: 1 1 50%; /* Default size basis, allow shrink/grow */
-     min-width: 150px; /* Minimum width */
-     flex-direction: column; /* Assume content inside flows top-down */
+    flex: 1 1 50%;
+    /* Default size basis, allow shrink/grow */
+    min-width: 150px;
+    /* Minimum width */
+    flex-direction: column;
+    /* Assume content inside flows top-down */
 }
 
 
@@ -106,14 +134,19 @@ body {
     background-color: #e5e7eb;
     background-repeat: no-repeat;
     background-position: 50%;
-    z-index: 20; /* Ensure gutter is clickable */
+    z-index: 20;
+    /* Ensure gutter is clickable */
 }
-.gutter.gutter-horizontal { /* Between text/quat */
+
+.gutter.gutter-horizontal {
+    /* Between text/quat */
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeAAPRUQBx75IwAAAAAElFTkSuQmCC');
     cursor: col-resize;
     height: 100%;
 }
-.gutter.gutter-vertical { /* Between plot/bottomRow */
+
+.gutter.gutter-vertical {
+    /* Between plot/bottomRow */
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
     cursor: row-resize;
     width: 100%;
@@ -122,16 +155,20 @@ body {
 /* --- Module Styling (Container, Header, Controls) --- */
 /* Style applies to the #plotModule, #textModule, #quatModule divs loaded inside placeholders */
 .module-container {
-    width: 100%; /* Fill placeholder width */
-    height: 100%; /* Fill placeholder height */
+    width: 100%;
+    /* Fill placeholder width */
+    height: 100%;
+    /* Fill placeholder height */
     display: flex;
     flex-direction: column;
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     padding: 0.5rem;
-    overflow: hidden; /* Contains content */
-    position: relative; /* For absolutely positioned children like FPS */
+    overflow: hidden;
+    /* Contains content */
+    position: relative;
+    /* For absolutely positioned children like FPS */
 }
 
 .module-header {
@@ -143,14 +180,17 @@ body {
     padding-left: 0.2rem;
     padding-bottom: 0.1rem;
     border-bottom: 1px solid #e5e7eb;
-    flex-shrink: 0; /* Prevent header from shrinking */
+    flex-shrink: 0;
+    /* Prevent header from shrinking */
     flex-wrap: wrap;
     gap: 0.75rem;
 }
 
 .module-header h3 {
-    margin: 0 0 0 0; /* Reset margin */
-    margin-right: auto; /* Push controls right */
+    margin: 0 0 0 0;
+    /* Reset margin */
+    margin-right: auto;
+    /* Push controls right */
     padding-bottom: 0;
     font-size: 1.125rem;
     font-weight: 600;
@@ -165,10 +205,12 @@ body {
     flex-wrap: wrap;
 }
 
-.data-format-controls { /* STR/HEX buttons */
+.data-format-controls {
+    /* STR/HEX buttons */
     display: flex;
     gap: 0.25rem;
 }
+
 .data-format-controls button {
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
@@ -178,6 +220,7 @@ body {
     border-radius: 0.25rem;
     cursor: pointer;
 }
+
 .data-format-controls button.active {
     background-color: #dbeafe;
     border-color: #93c5fd;
@@ -187,42 +230,69 @@ body {
 
 /* --- Specific Module Content Styling --- */
 #dataRateDisplay {
-    position: absolute;      /* 改为绝对定位 */
-    left: 50%;               /* 左边缘移到中心 */
-    transform: translateX(-50%); /* 向左移动自身宽度的一半，实现水平居中 */
+    position: absolute;
+    /* 改为绝对定位 */
+    left: 50%;
+    /* 左边缘移到中心 */
+    transform: translateX(-50%);
+    /* 向左移动自身宽度的一半，实现水平居中 */
     /* align-items: center (父元素) 会处理垂直居中, 无需 top/translateY */
-    white-space: nowrap;     /* 防止文本换行 */
+    white-space: nowrap;
+    /* 防止文本换行 */
     /* 保留基础样式 */
     font-size: 0.875rem;
     color: #4b5563;
 }
+
 /* Plot Module */
-.plot-container .plot-content { /* The div holding the #lineChart */
-    flex-grow: 1; /* Allow content div to fill space */
-    min-height: 0; /* Crucial for flex-grow in column */
+.plot-container .plot-content {
+    /* The div holding the #lineChart */
+    flex-grow: 1;
+    /* Allow content div to fill space */
+    min-height: 0;
+    /* Crucial for flex-grow in column */
     width: 100%;
     height: 100%;
 }
-.plot-container #lineChart { /* TimeChart target */
+
+.plot-container #lineChart {
+    /* TimeChart target */
     width: 100%;
     height: 100%;
 }
 
 /* Text Module */
 #parsedDataDisplay {
-    display: flex; flex-wrap: wrap; gap: 0.5rem;
-    font-family: monospace; font-size: 0.875rem;
-    padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;
-    background-color: #f9fafb; margin-bottom: 0.5rem; min-height: 3rem;
-    align-items: center; flex-shrink: 0; overflow-y: auto; max-height: 100px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background-color: #f9fafb;
+    margin-bottom: 0.5rem;
+    min-height: 3rem;
+    align-items: center;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 100px;
 }
+
 #parsedDataDisplay .channel-value {
-    background-color: #e5e7eb; padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem; white-space: nowrap;
+    background-color: #e5e7eb;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
 }
+
 #parsedDataDisplay .channel-label {
-    font-size: 0.75rem; color: #6b7280; margin-right: 0.125rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-right: 0.125rem;
 }
+
 /* Style for the xterm container div */
 .terminal-container {
     flex-grow: 1;
@@ -231,7 +301,8 @@ body {
     min-height: 50px;
     padding: .25rem;
     border-radius: 0.375rem;
-    overflow: hidden; /* Keep this */
+    overflow: hidden;
+    /* Keep this */
 }
 
 .terminal-container .xterm .xterm-viewport {
@@ -242,58 +313,81 @@ body {
 /* Quaternion Module */
 /* --- Quaternion Module Specific --- */
 .quaternion-container {
-    position: relative; /* Needed for absolute positioning of overlays */
-    overflow: hidden;   /* Ensure overlays don't spill out */
-    display: flex;      /* Use flex for overall structure */
+    position: relative;
+    /* Needed for absolute positioning of overlays */
+    overflow: hidden;
+    /* Ensure overlays don't spill out */
+    display: flex;
+    /* Use flex for overall structure */
     flex-direction: column;
 }
 
 .quat-view-area {
-    flex-grow: 1; /* Allow 3D view to take available space */
-    min-height: 0; /* Crucial for flex-grow in column layout */
-    background-color: #e5e7eb; /* Default background */
+    flex-grow: 1;
+    /* Allow 3D view to take available space */
+    min-height: 0;
+    /* Crucial for flex-grow in column layout */
+    background-color: #e5e7eb;
+    /* Default background */
     border-radius: 0.375rem;
-    position: relative; /* For error overlay positioning */
+    position: relative;
+    /* For error overlay positioning */
     width: 100%;
-    /* height: 100%; */ /* Let flexbox handle height */
+    /* height: 100%; */
+    /* Let flexbox handle height */
     overflow: hidden;
     cursor: grab;
 }
+
 .quaternion-container .quat-view-area:active {
-     cursor: grabbing;
+    cursor: grabbing;
 }
 
 
 /* Overlay for Data Processing Errors (e.g., NaN) */
 .quat-error-overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    display: flex; /* Hidden by default via inline style */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    /* Hidden by default via inline style */
     justify-content: center;
     align-items: center;
-    background-color: rgba(229, 231, 235, 0.6); /* Semi-transparent background */
-    color: #dc2626; /* Red text for error */
+    background-color: rgba(229, 231, 235, 0.6);
+    /* Semi-transparent background */
+    color: #dc2626;
+    /* Red text for error */
     font-weight: 500;
     text-align: center;
     padding: 1rem;
-    border-radius: 0.375rem; /* Match parent */
+    border-radius: 0.375rem;
+    /* Match parent */
     z-index: 5;
-    pointer-events: none; /* Allow interaction with underlying view if needed */
+    pointer-events: none;
+    /* Allow interaction with underlying view if needed */
     overflow-y: auto;
 }
 
 /* Overlay for Initial Channel Selection */
 .quat-selector-overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(243, 244, 246, 0.95); /* Slightly opaque background */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(243, 244, 246, 0.95);
+    /* Slightly opaque background */
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 2rem;
-    z-index: 10; /* Above the 3D view */
-    border-radius: 0.5rem; /* Match module container */
+    z-index: 10;
+    /* Above the 3D view */
+    border-radius: 0.5rem;
+    /* Match module container */
     text-align: center;
 }
 
@@ -303,20 +397,28 @@ body {
     color: #1f2937;
     margin-bottom: 0.5rem;
 }
-.quat-selector-overlay p.text-xs { /* 更精确地选中描述文字 */
-    font-size: 0.75rem; /* 可选：稍微减小字号 */
-    color: #4b5563;     /* 默认灰色 */
-    margin-bottom: 0.5rem; /* 减小描述文字下边距 */
-    line-height: 1.2;    /* 可选：调整行高 */
+
+.quat-selector-overlay p.text-xs {
+    /* 更精确地选中描述文字 */
+    font-size: 0.75rem;
+    /* 可选：稍微减小字号 */
+    color: #4b5563;
+    /* 默认灰色 */
+    margin-bottom: 0.5rem;
+    /* 减小描述文字下边距 */
+    line-height: 1.2;
+    /* 可选：调整行高 */
 }
 
 .quat-selector-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columns */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* 2 columns */
     gap: 0.5rem;
     margin-bottom: .75rem;
     width: 100%;
-    max-width: 300px; /* Limit width of selectors */
+    max-width: 300px;
+    /* Limit width of selectors */
 }
 
 .quat-selector-grid div {
@@ -334,19 +436,24 @@ body {
 .quat-selector-grid select {
     /* Inherit base select styles or add specific ones */
     width: 100%;
-    padding: 0.3rem 0.5rem; /* 减小选择框内边距 */
+    padding: 0.3rem 0.5rem;
+    /* 减小选择框内边距 */
     border: 1px solid #d1d5db;
     border-radius: 0.375rem;
-    font-size: .875rem; /* Reset font size */
-    margin-bottom: 0; /* Override general margin */
+    font-size: .875rem;
+    /* Reset font size */
+    margin-bottom: 0;
+    /* Override general margin */
 }
 
 .quat-selector-error-message {
-    color: #dc2626; /* Red */
+    color: #dc2626;
+    /* Red */
     font-size: 0.875rem;
     margin-top: 0.5rem;
     margin-bottom: 1rem;
-    min-height: 1.25rem; /* Reserve space */
+    min-height: 1.25rem;
+    /* Reserve space */
 }
 
 .quat-confirm-button {
@@ -359,9 +466,11 @@ body {
     cursor: pointer;
     transition: background-color 0.2s;
 }
+
 .quat-confirm-button:hover:not(:disabled) {
-     background-color: #1d4ed8;
+    background-color: #1d4ed8;
 }
+
 .quat-confirm-button:disabled {
     background-color: #9ca3af;
     cursor: not-allowed;
@@ -375,30 +484,48 @@ body {
     padding: 0.25rem 0.5rem;
     color: #4b5563;
     cursor: pointer;
-    line-height: 0; /* Align icon */
+    line-height: 0;
+    /* Align icon */
     border-radius: 0.25rem;
     display: flex;
     align-items: center;
 }
+
 .quat-control-button:hover {
-     background-color: #f3f4f6;
-     border-color: #9ca3af;
-     color: #1f2937;
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+    color: #1f2937;
 }
+
 .quat-control-button svg {
     /* Ensure icon size is consistent */
 }
 
 /* --- General Control Styles (Buttons, Inputs, Labels, etc.) --- */
 #control-panel button {
-    padding: 0.5rem 1rem; border-radius: 0.375rem; background-color: #3b82f6;
-    color: white; font-weight: 500; transition: background-color 0.2s;
-    border: none; cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    background-color: #3b82f6;
+    color: white;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
 }
-#control-panel button:hover { background-color: #2563eb; }
-#control-panel button:disabled { background-color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
 
-#control-panel input[type="number"], #control-panel input[type="text"], #control-panel select, #control-panel textarea {
+#control-panel button:hover {
+    background-color: #2563eb;
+}
+
+#control-panel button:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+#control-panel input[type="number"],
+#control-panel select,
+#control-panel textarea {
     border: 1px solid #d1d5db;
     border-radius: 0.375rem;
     padding: 0.5rem;
@@ -409,72 +536,142 @@ body {
 }
 
 #control-panel select {
-    padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-    background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;
-    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
 #control-panel label {
-    display: block; margin-bottom: 0.25rem; font-size: 0.875rem;
-    font-weight: 500; color: #374151;
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
 }
 
-#control-panel .control-section { /* Sections within Control Panel */
-    border: 1px solid #e5e7eb; border-radius: 0.375rem;
-    padding: 0.75rem; margin-bottom: 1rem;
+#control-panel .control-section {
+    /* Sections within Control Panel */
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
 }
-.control-section:last-child { margin-bottom: 0; }
+
+.control-section:last-child {
+    margin-bottom: 0;
+}
 
 .parser-status {
-    font-size: 0.75rem; margin-top: 0.25rem; color: #6b7280; font-style: italic;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    color: #6b7280;
+    font-style: italic;
 }
+
 /* Define color classes directly */
-.parser-status.text-green-600 { color: #059669 !important; }
-.parser-status.text-red-600 { color: #dc2626 !important; }
+.parser-status.text-green-600 {
+    color: #059669 !important;
+}
+
+.parser-status.text-red-600 {
+    color: #dc2626 !important;
+}
 
 /* Control Panel Headings */
 .control-panel h3 {
-    font-size: 1.25rem; font-weight: 600; margin: 0 0 0.75rem 0;
-    color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.5rem;
 }
+
 .control-panel h4 {
-    font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
     color: #374151;
 }
 
 /* Progress Bar */
 .progress-bar-container {
-    width: 100%; background-color: #e5e7eb; border-radius: 0.375rem;
-    overflow: hidden; height: 0.5rem;
+    width: 100%;
+    background-color: #e5e7eb;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    height: 0.5rem;
 }
+
 .progress-bar {
-    background-color: #3b82f6; height: 100%; width: 0%;
+    background-color: #3b82f6;
+    height: 100%;
+    width: 0%;
     transition: width 0.2s ease-out;
 }
 
 /* Toggle Switch */
 .toggle-switch {
-    display: inline-flex; align-items: center; cursor: pointer; vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    vertical-align: middle;
 }
-.toggle-switch input { display: none; }
+
+.toggle-switch input {
+    display: none;
+}
+
 .toggle-switch .slider {
-    width: 34px; height: 20px; background-color: #ccc; border-radius: 10px;
-    position: relative; transition: background-color 0.2s;
+    width: 34px;
+    height: 20px;
+    background-color: #ccc;
+    border-radius: 10px;
+    position: relative;
+    transition: background-color 0.2s;
 }
+
 .toggle-switch .slider::before {
-    content: ""; position: absolute; width: 16px; height: 16px;
-    border-radius: 50%; background-color: white; left: 2px; top: 2px;
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: white;
+    left: 2px;
+    top: 2px;
     transition: transform 0.2s;
 }
-.toggle-switch input:checked + .slider { background-color: #3b82f6; }
-.toggle-switch input:checked + .slider::before { transform: translateX(14px); }
+
+.toggle-switch input:checked+.slider {
+    background-color: #3b82f6;
+}
+
+.toggle-switch input:checked+.slider::before {
+    transform: translateX(14px);
+}
+
 .toggle-switch-label {
-    margin-left: 0.5rem; font-size: 0.875rem; color: #374151; user-select: none;
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+    user-select: none;
 }
 
 /* Worker Status Display */
 #workerStatusDisplay {
-    font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem; padding: 0.25rem 0.5rem;
-    background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.25rem;
-    display: none; /* Hidden by default */
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    display: none;
+    /* Hidden by default */
 }

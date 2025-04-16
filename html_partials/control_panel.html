@@ -12,16 +12,33 @@
 <div id="simulatedControls" class="control-section">
     <h4>模拟设置</h4>
     <div>
-        <label for="simNumChannels">通道数量:</label> <input type="number" id="simNumChannels" value="4" min="1"
-            max="16" class="mb-2">
+        <label for="simNumChannels">通道数量:</label> <input type="number" id="simNumChannels" value="4" min="1" max="16"
+            class="mb-2">
     </div>
     <div>
-        <label for="simFrequency">频率 (Hz):</label> <input type="number" id="simFrequency" value="1000"
-            min="1" max="2000" class="mb-2">
+        <label for="simFrequency">频率 (Hz):</label> <input type="number" id="simFrequency" value="1000" min="1"
+            max="2000" class="mb-2">
     </div>
     <div>
-        <label for="simAmplitude">幅值:</label> <input type="number" id="simAmplitude" value="1" min="0.1"
-            step="0.1" class="mb-2">
+        <label for="simAmplitude">幅值:</label> <input type="number" id="simAmplitude" value="1" min="0.1" step="0.1"
+            class="mb-2">
+    </div>
+</div>
+
+<div class="control-section">
+    <h3>数据采集与导出</h3>
+    <div>
+        <label for="bufferDurationInput">最大缓冲点数:</label> <input type="number" id="bufferDurationInput" value="120000"
+            min="1000" max="6000000" class="mb-2">
+    </div>
+    <label>缓冲使用情况:</label>
+    <div class="progress-bar-container mb-2">
+        <div id="bufferUsageBar" class="progress-bar"></div>
+    </div>
+    <p id="bufferStatus" class="text-xs text-gray-500 mb-3">缓冲: 0 / 120000 点</p>
+    <div class="flex flex-col gap-y-3 mt-1">
+        <button id="downloadCsvButton" class="w-full">下载 CSV</button> <button id="clearDataButton"
+            class="w-full bg-red-500 hover:bg-red-600">清除图表和缓冲</button>
     </div>
 </div>
 
@@ -32,17 +49,17 @@
     <div id="serialOptions" class="mt-2">
         <label for="baudRateInput">波特率:</label>
         <div class="flex gap-2">
-             <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates"
-                value="" min="300" max="4000000" step="100">
+            <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates" value="115200" min="300"
+                max="4000000" step="1" placeholder="输入或选择波特率">
             <datalist id="commonBaudRates">
-                <option>9600</option>
-                <option>19200</option>
-                <option>38400</option>
-                <option>57600</option>
-                <option>115200</option>
-                <option>230400</option>
-                <option>460800</option>
-                <option>921600</option>
+                <option value="9600"></option>
+                <option value="19200"></option>
+                <option value="38400"></option>
+                <option value="57600"></option>
+                <option value="115200"></option>
+                <option value="230400"></option>
+                <option value="460800"></option>
+                <option value="921600"></option>
             </datalist>
         </div>
         <label for="dataBitsSelect">数据位:</label> <select id="dataBitsSelect" class="mb-2">
@@ -72,25 +89,12 @@
         </select>
 
         <div id="customParserSection" style="display: none;"> <label for="serialParser">自定义解析器 (JS 函数体):</label>
-            <textarea id="serialParser" rows="6" placeholder="输入 parseSerialData(uint8ArrayData) 函数体... // 返回 { values: number[], frameByteLength: number } 或 { values: null, frameByteLength: 0 }"></textarea>
+            <textarea id="serialParser" rows="6"
+                placeholder="输入 parseSerialData(uint8ArrayData) 函数体... // 返回 { values: number[], frameByteLength: number } 或 { values: null, frameByteLength: 0 }"></textarea>
             <button id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
             <p id="parserStatus" class="parser-status">状态：使用自定义解析器。</p>
             <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
         </div>
-         <p id="builtInParserStatus" class="parser-status" style="display: block;">状态：使用内置解析器。</p> </div>
-</div>
-
-<div class="control-section">
-    <h3>数据采集与导出</h3>
-    <div>
-        <label for="bufferDurationInput">最大缓冲点数:</label> <input type="number" id="bufferDurationInput"
-            value="120000" min="1000" max="6000000" class="mb-2"> </div>
-    <label>缓冲使用情况:</label>
-    <div class="progress-bar-container mb-2">
-        <div id="bufferUsageBar" class="progress-bar"></div>
-    </div>
-    <p id="bufferStatus" class="text-xs text-gray-500 mb-3">缓冲: 0 / 120000 点</p> <div class="flex flex-col gap-y-3 mt-1">
-        <button id="downloadCsvButton" class="w-full">下载 CSV</button> <button id="clearDataButton"
-            class="w-full bg-red-500 hover:bg-red-600">清除图表和缓冲</button>
+        <p id="builtInParserStatus" class="parser-status" style="display: block;">状态：使用内置解析器。</p>
     </div>
 </div>
