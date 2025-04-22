@@ -1,17 +1,21 @@
 <div id="plotModule" class="module-container plot-container">
-    <div class="module-header"> <h3>曲线显示 (WebGL)</h3>
+  <div class="module-header">
+    <h3>曲线显示 (WebGL)</h3>
 
-        <span id="dataRateDisplay" class="text-sm text-gray-600">速率: 0 Hz</span>
+    <span id="dataRateDisplay" class="text-sm text-gray-600">速率: 0 Hz</span>
 
-        <div class="module-controls">
-            <label class="toggle-switch">
-                <input type="checkbox" id="followToggle" checked>
-                <span class="slider"></span>
-                <span class="toggle-switch-label">跟随</span>
-            </label>
-            </div>
+    <div class="module-controls">
+      <label class="toggle-switch">
+        <input type="checkbox" id="followToggle" checked />
+        <span class="slider"></span>
+        <span class="toggle-switch-label">跟随</span>
+      </label>
+      <button class="module-fullscreen-button" data-target-module-id="plotModule" title="全屏/还原">
+        <i data-lucide="maximize"></i>
+      </button>
     </div>
-    <div class="plot-content">
-        <div id="lineChart"></div>
-    </div>
+  </div>
+  <div class="plot-content">
+    <div id="lineChart"></div>
+  </div>
 </div>

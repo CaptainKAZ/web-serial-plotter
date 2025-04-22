@@ -1,14 +1,18 @@
 <div id="textModule" class="module-container text-container">
-    <div class="module-header">
-        <h3>原始数据显示</h3>
-        <div class="module-controls">
-            <div class="data-format-controls">
-                <button id="rawStrBtn" class="active">STR</button> <button id="rawHexBtn">HEX</button>
-            </div>
-        </div>
+  <div class="module-header">
+    <h3>原始数据显示</h3>
+    <div class="module-controls">
+      <div class="data-format-controls">
+        <button id="rawStrBtn" class="active">STR</button>
+        <button id="rawHexBtn">HEX</button>
+      </div>
+      <button class="module-fullscreen-button" data-target-module-id="textModule" title="全屏/还原">
+        <i data-lucide="maximize"></i>
+      </button>
     </div>
-    <div id="parsedDataDisplay">
-        <span class="text-gray-400 text-xs italic">等待数据...</span>
-    </div>
-    <div id="terminal" class="terminal-container"></div>
+  </div>
+  <div id="parsedDataDisplay">
+    <span class="text-gray-400 text-xs italic">等待数据...</span>
+  </div>
+  <div id="terminal" class="terminal-container"></div>
 </div>

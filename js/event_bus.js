@@ -18,17 +18,17 @@
  * // eventBus.off('some-event', listenerFunction);
  */
 class EventBus extends EventTarget {
-    on(eventName, listener) {
-        this.addEventListener(eventName, listener);
-    }
+  on(eventName, listener) {
+    this.addEventListener(eventName, listener);
+  }
 
-    off(eventName, listener) {
-        this.removeEventListener(eventName, listener);
-    }
+  off(eventName, listener) {
+    this.removeEventListener(eventName, listener);
+  }
 
-    emit(eventName, detail) {
-        this.dispatchEvent(new CustomEvent(eventName, { detail }));
-    }
+  emit(eventName, detail) {
+    this.dispatchEvent(new CustomEvent(eventName, { detail }));
+  }
 }
 
 export const eventBus = new EventBus();
