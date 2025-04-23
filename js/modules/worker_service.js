@@ -109,7 +109,7 @@ function startWorker(config) {
 /**
  * 向 Worker 发送停止指令。
  */
-function stopWorker() {
+async function stopWorker() {
   if (!worker) {
     console.warn(
       "WorkerService: Cannot stop, worker not initialized or already terminated."
@@ -117,7 +117,7 @@ function stopWorker() {
     return;
   }
   console.log("WorkerService: Sending stop command to worker.");
-  worker.postMessage({ type: "stop" });
+  await worker.postMessage({ type: "stop" });
 }
 
 /**

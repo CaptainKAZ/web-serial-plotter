@@ -1,20 +1,36 @@
 <div class="control-section">
-    <h4>数据源</h4>
+    <h3>数据采集与导出</h3>
+    <label for="dataSourceSelect">数据源:</label>
     <select id="dataSourceSelect" class="mb-2">
         <option value="simulated">模拟数据（性能测试）</option>
         <option value="webserial" selected>WebSerial</option>
         <option value="websocket" disabled>WebSocket（暂未支持）</option>
     </select>
-    <button id="startStopButton" class="w-full mb-2">开始采集</button>
-    <p id="statusMessage" class="text-xs text-gray-500 mt-1">状态：空闲</p>
+    <p id="statusMessage" class="text-xs text-gray-500 mb-2">状态：空闲</p>
     <p id="workerStatusDisplay"></p>
+    <div>
+        <label for="bufferDurationInput">最大缓冲点数:</label>
+        <input type="number" id="bufferDurationInput" value="120000" min="1000" max="6000000" class="mb-2">
+    </div>
+    <label>缓冲使用情况:</label>
+    <div class="progress-bar-container mb-2">
+        <div id="bufferUsageBar" class="progress-bar"></div>
+    </div>
+    <p id="bufferStatus" class="text-xs text-gray-500 mb-2">缓冲: 0 / 120000 点</p>
+    <button id="startStopButton" class="w-full mt-2">开始采集</button>
+    
+    <div class="flex gap-x-1 mt-0.8 mb-0 mt-0">
+        <button id="downloadCsvButton" class="w-1/2">下载 CSV</button>
+        <button id="clearDataButton" class="w-1/2 bg-red-500 hover:bg-red-600">清空数据</button>
+    </div>
+
 </div>
 
 <div id="parsingSettingsSection" class="control-section" style="display: none;">
-    <h4>解析设置</h4>
+    <h3>解析设置</h3>
     <label for="serialProtocolSelect">解析协议:</label>
     <select id="serialProtocolSelect" class="mb-2">
-        <option value="default">默认 (逗号/空格分隔)</option>
+        <option value="default">Arduino (逗号/空格分隔)</option>
         <option value="justfloat">JustFloat (N*float + 帧尾)</option>
         <option value="firewater">FireWater (文本 + 换行)</option>
         <option value="custom">自定义</option>
@@ -30,7 +46,7 @@
     <p id="builtInParserStatus" class="parser-status" style="display: block;">状态：使用内置解析器。</p>
 </div>
 <div id="simulatedControls" class="control-section" style="display: none;">
-    <h4>模拟设置</h4>
+    <h3>模拟设置</h3>
     <div>
         <label for="simNumChannels">通道数量:</label>
         <input type="number" id="simNumChannels" value="4" min="1" max="16" class="mb-2">
@@ -46,7 +62,7 @@
 </div>
 
 <div id="webSerialControls" class="control-section" style="display: none;">
-    <h4>WebSerial 连接设置</h4>
+    <h3>WebSerial 连接设置</h3>
     <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
     <button id="connectSerialButton" class="w-full mb-2">连接串口</button>
     <div id="serialOptions" class="mt-2"> <label for="baudRateInputFinal">波特率:</label>
@@ -88,21 +104,4 @@
         <option value="hardware">硬件</option>
     </select>
 </div>
-</div>
-
-<div class="control-section">
-    <h4>数据采集与导出</h4>
-    <div>
-        <label for="bufferDurationInput">最大缓冲点数:</label>
-        <input type="number" id="bufferDurationInput" value="120000" min="1000" max="6000000" class="mb-2">
-    </div>
-    <label>缓冲使用情况:</label>
-    <div class="progress-bar-container mb-2">
-        <div id="bufferUsageBar" class="progress-bar"></div>
-    </div>
-    <p id="bufferStatus" class="text-xs text-gray-500 mb-3">缓冲: 0 / 120000 点</p>
-    <div class="flex flex-col gap-y-3 mt-1">
-        <button id="downloadCsvButton" class="w-full">下载 CSV</button>
-        <button id="clearDataButton" class="w-full bg-red-500 hover:bg-red-600">清除图表和缓冲</button>
-    </div>
 </div>

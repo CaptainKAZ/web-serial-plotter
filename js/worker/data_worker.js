@@ -208,7 +208,7 @@ function generateAndSendSimBatch() {
   for (let p = 0; p < pointsInBatch; p++) {
     const pointTimestamp =
       simLastBatchSendTime + (timeSinceLastBatch * (p + 1)) / pointsInBatch;
-    const pointElapsedMs = pointTimestamp - simCurrentRunStartTime;
+    const pointElapsedMs = pointTimestamp;
     const values = [];
     for (let i = 0; i < simConfig.numChannels; i++) {
       const phase = (i * Math.PI) / 4;

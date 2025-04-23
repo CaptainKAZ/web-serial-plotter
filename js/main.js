@@ -389,6 +389,7 @@ function startCore() {
     parserCode: appState.config.parserCode,
     config: {},
   };
+  plotModule.truncate();
 
   if (dataSource === "simulated") {
     workerConfig.config = {
@@ -423,10 +424,10 @@ function startCore() {
   dataProcessor.resetEstimatesAndRate();
   uiManager.updateBufferUI(getBufferStats());
 }
-function stopCore() {
+async function stopCore() {
   if (!appState.isCollecting) return;
   appState.isCollecting = false;
-  workerService.stopWorker();
+  await workerService.stopWorker();
   dataProcessor.resetEstimatesAndRate();
   appState.mainThreadDataQueue = [];
   uiManager.updateStatus("状态：已停止");

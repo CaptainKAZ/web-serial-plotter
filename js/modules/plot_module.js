@@ -25,6 +25,7 @@ let internalConfig = {
 let dataPointCounter = 0;
 let lastRateCheckTime = 0;
 let currentDataRateHz = 0;
+let latestTimestamp = 0;
 
 // --- Internal TimeChart Interaction Plugin ---
 class CustomInteractionPlugin {
@@ -658,7 +659,7 @@ export function processDataBatch(batch) {
   if (!series) return;
 
   let pointsAdded = 0;
-  let latestTimestamp = lastRateCheckTime;
+  latestTimestamp = lastRateCheckTime;
   let maxChannelsSeenInBatch = series.length; // Start with current number of series
   let needsSeriesUpdate = false;
 
@@ -708,7 +709,7 @@ export function processDataBatch(batch) {
     if (timestamp > latestTimestamp) latestTimestamp = timestamp;
 
     // Now iterate up to the potentially increased series length
-    for (let i = 0; i < Math.min(values.length, series.length); i++) {
+    for (let i = 0; i < series.length; i++) {
       // Use current series.length
       if (series[i]?.data) {
         const seriesData = series[i].data;
@@ -869,6 +870,11 @@ export function clear() {
   currentDataRateHz = 0;
   updateDataRateDisplay();
 }
+
+export function truncate() {
+  if (!isInitialized) return;
+  processDataBatch([{timestamp: latestTimestamp, values: []}]);
+}
 export function destroy() {
   if (!isInitialized) return;
   if (followToggleElement && handleInternalFollowChange) {
@@ -888,5 +894,6 @@ export function destroy() {
     maxBufferPoints: DEFAULT_MAX_BUFFER_POINTS,
   };
   isInitialized = false;
+  latestTimestamp = 0;
   console.log("Plot Module Destroyed.");
 }

@@ -345,8 +345,6 @@ function updateButtonStates(state = {}) {
     domElements.downloadCsvButton.disabled = !dataBufferHasData;
   if (domElements.clearDataButton) {
     domElements.clearDataButton.disabled = !dataBufferHasData && !isCollecting;
-    domElements.clearDataButton.className =
-      "w-full bg-red-500 hover:bg-red-500 text-white enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-70";
   }
 }
 
