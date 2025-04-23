@@ -355,16 +355,16 @@ export function processDataBatch(batch) {
   }
 
   // Update available channels and UI if the count has changed
-  if (maxChannelsInBatch > 0 && maxChannelsInBatch !== internalConfig.availableChannels) {
-      internalConfig.availableChannels = maxChannelsInBatch;
+  if (maxChannelsInBatch > 0 && maxChannelsInBatch !== internalConfig.numChannels) {
+      internalConfig.numChannels = maxChannelsInBatch;
       populateSelectors(); // Refresh dropdowns
 
       const selections = [
           internalConfig.selectedChannels.w, internalConfig.selectedChannels.x,
           internalConfig.selectedChannels.y, internalConfig.selectedChannels.z
       ];
-      const currentSelectionStillValid = selections.every(idx => idx === null || idx < internalConfig.availableChannels);
-      const minChannelsMet = internalConfig.availableChannels >= 4;
+      const currentSelectionStillValid = selections.every(idx => idx === null || idx < internalConfig.numChannels);
+      const minChannelsMet = internalConfig.numChannels >= 4;
 
       // Force re-selection if current selection is invalid or insufficient channels
       if (isChannelSelectionConfirmed && (!currentSelectionStillValid || !minChannelsMet)) {

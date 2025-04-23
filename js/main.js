@@ -266,12 +266,7 @@ function handleSimConfigChangeIntent(event) {
   appState.config.numChannels = simConfig.numChannels;
   appState.config.simFrequency = simConfig.frequency;
   appState.config.simAmplitude = simConfig.amplitude;
-  displayModules.forEach((m) => {
-    if (m.updateConfig)
-      m.updateConfig({
-        numChannels: simConfig.numChannels,
-      });
-  });
+  
   // 如果当前正在采集模拟数据，则向 Worker 发送更新配置的消息
   // 而不是重启整个采集流程
   if (appState.isCollecting && appState.config.dataSource === "simulated") {
