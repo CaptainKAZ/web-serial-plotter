@@ -45,7 +45,21 @@ const appState = {
 const displayModules = [plotModule, terminalModule, quatModule];
 
 // --- Initialization ---
-
+function registerServiceWorker() {
+  console.log("Core: Registering Service Worker...");
+  if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("sw.js")
+        .then((registration) => {
+          console.log("ServiceWorker register successfully", registration.scope); // ServiceWorker registration successful with scope:
+        })
+        .catch((error) => {
+          console.error("ServiceWorker register fail:", error); // ServiceWorker registration failed:
+        });
+  } else {
+    console.log("Browser not support Service Worker。"); // Service Worker not supported by this browser.
+  }
+}
 async function initializeApp() {
   console.log("Core: Initializing application...");
   try {
@@ -73,6 +87,7 @@ async function initializeApp() {
   uiManager.updateButtonStates(getButtonState());
   uiManager.updateParserVisibility(appState.config.serialProtocol);
   uiManager.updateBufferUI(getBufferStats());
+  registerServiceWorker();
 
   // Defer Display Module Creation & Layout Init
   requestAnimationFrame(() => {
@@ -204,7 +219,7 @@ function handleDataSourceChangeIntent(event) {
     displayModules.forEach((m) => {
       if (m.updateConfig)
         m.updateConfig({
-          numChannels: targetChannelCount
+          numChannels: targetChannelCount,
         });
     });
     handleClearDataIntent(); // Clear data
@@ -266,7 +281,7 @@ function handleSimConfigChangeIntent(event) {
   appState.config.numChannels = simConfig.numChannels;
   appState.config.simFrequency = simConfig.frequency;
   appState.config.simAmplitude = simConfig.amplitude;
-  
+
   // 如果当前正在采集模拟数据，则向 Worker 发送更新配置的消息
   // 而不是重启整个采集流程
   if (appState.isCollecting && appState.config.dataSource === "simulated") {

@@ -1,30 +1,35 @@
 // sw.js
 
 // 定义缓存名称，通常包含版本号以便更新
-const CACHE_NAME = 'web-serial-plotter-cache-v1';
-// 定义需要缓存的核心文件（应用外壳）
+const CACHE_NAME = 'web-serial-plotter-cache-v2'; // Increment version number
+// 定义需要缓存的核心文件（应用外壳）和依赖项
 const urlsToCache = [
   '/', // 根路径通常也需要缓存
-  '/index.html',
-  '/css/styles.css',
-  '/js/main.js',
-  '/js/config.js',
-  '/js/utils.js',
-  '/js/modules/ui.js',
-  '/js/modules/plot_module.js',
-  '/js/modules/terminal_module.js',
-  '/js/modules/quat_module.js',
-  '/js/modules/data_processing.js',
-  '/js/modules/serial.js',
-  '/js/modules/worker_comms.js',
-  '/js/worker/data_worker.js', // Worker 脚本也需要缓存
-  // HTML Partials (如果它们是动态加载的，也可以缓存fetch请求，但直接缓存文件更简单)
-  '/html_partials/control_panel.html',
-  '/html_partials/plot_module.html',
-  '/html_partials/text_module.html',
-  '/html_partials/quaternion_module.html',
-  // 外部库的 CDN URL (非常重要！)
-  'https://cdn.tailwindcss.com', // 注意：缓存根域名可能不够精确，最好缓存具体文件，但CDN可能不允许
+  'index.html',
+  'manifest.json', // Added manifest file
+  'css/styles.css',
+  // Core JS Modules
+  'js/main.js',
+  'js/config.js',
+  'js/utils.js',
+  'js/event_bus.js',
+  'js/modules/ui.js',
+  'js/modules/plot_module.js',
+  'js/modules/terminal_module.js',
+  'js/modules/quat_module.js',
+  'js/modules/data_processing.js',
+  'js/modules/serial.js',
+  'js/modules/worker_service.js',
+  'js/worker/data_worker.js', // Worker 脚本也需要缓存
+  // HTML Partials
+  'html_partials/control_panel.html',
+  'html_partials/plot_module.html',
+  'html_partials/text_module.html',
+  'html_partials/quaternion_module.html',
+  // 外部库的 CDN URL
+  // IMPORTANT: Caching root domains or '@latest' might be unreliable.
+  // It's best to use specific file URLs if possible. These are based on index.html.
+  'https://cdn.tailwindcss.com', // Tailwind CSS (might need specific file URL)
   'https://cdn.jsdelivr.net/npm/d3-array@3',
   'https://cdn.jsdelivr.net/npm/d3-color@3',
   'https://cdn.jsdelivr.net/npm/d3-format@3',
@@ -38,41 +43,62 @@ const urlsToCache = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
   'https://unpkg.com/split.js/dist/split.min.js',
-  'https://unpkg.com/lucide@latest', // 同样，最好缓存具体版本
+  'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js', // More specific Lucide URL if available, assuming UMD here
   'https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css',
   'https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js',
   'https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js',
-  '/icons/icon-512x512.png'
+  // Icons and Assets
+  'icons/icon-512x512.png'
+  // Add any other static assets used by your CSS or JS if necessary
 ];
 
 // 安装 Service Worker 时触发
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Install event');
+  console.log('[Service Worker] Install event for cache:', CACHE_NAME);
   // 执行安装步骤
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[Service Worker] Opened cache:', CACHE_NAME);
-        // 添加所有需要缓存的 URL 到缓存中
-        // addAll 是原子操作，如果任何一个文件下载失败，整个操作都会失败
-        return cache.addAll(urlsToCache).catch(error => {
-          console.error('[Service Worker] Failed to cache urls during install:', error);
-          // 考虑在这里抛出错误，阻止 Service Worker 安装，
-          // 因为如果核心文件缓存失败，应用可能无法离线工作。
-          // throw error;
+        // 尝试添加所有需要缓存的 URL
+        // 使用 map 创建独立的 fetch 请求，这样即使一个失败也不会阻止其他的缓存
+        const cachePromises = urlsToCache.map((urlToCache) => {
+          return fetch(urlToCache, { mode: 'no-cors' }) // Use 'no-cors' for external resources if CORS headers aren't set, but caching might be opaque. Prefer specific URLs with CORS if possible.
+            .then((response) => {
+              if (!response.ok && response.type !== 'opaque') { // Allow opaque responses for no-cors requests
+                 console.warn(`[Service Worker] Failed to fetch ${urlToCache} for caching. Status: ${response.status}`);
+                 // Don't throw error here, just warn, allow others to cache
+                 return Promise.resolve(); // Resolve so Promise.all continues
+              }
+              return cache.put(urlToCache, response);
+            })
+            .catch((error) => {
+              console.error(`[Service Worker] Error fetching/caching ${urlToCache}:`, error);
+              // Don't throw error here, allow others to cache
+              return Promise.resolve(); // Resolve so Promise.all continues
+            });
         });
+
+        return Promise.all(cachePromises)
+          .then(() => {
+            console.log('[Service Worker] Finished attempting to cache all specified URLs.');
+          });
       })
       .then(() => {
-        console.log('[Service Worker] All specified URLs cached successfully.');
-        // 强制新安装的 Service Worker 立即激活 (可选)
+        console.log('[Service Worker] Installation finished, attempting to activate...');
+        // 强制新安装的 Service Worker 立即激活 (重要)
         return self.skipWaiting();
+      })
+      .catch(error => {
+          console.error('[Service Worker] Cache opening or skipWaiting failed during install:', error);
+          // If opening the cache itself fails, the SW install should fail.
       })
   );
 });
 
 // 激活 Service Worker 时触发
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activate event');
+  console.log('[Service Worker] Activate event for cache:', CACHE_NAME);
   // 清理旧缓存
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -88,7 +114,10 @@ self.addEventListener('activate', (event) => {
     }).then(() => {
       console.log('[Service Worker] Claiming clients');
       // 让 Service Worker 立即控制当前打开的页面 (clients)
+      // 这对于确保 PWA 立即使用新缓存至关重要
       return self.clients.claim();
+    }).catch(error => {
+        console.error('[Service Worker] Cache cleanup or claiming clients failed during activate:', error);
     })
   );
 });
@@ -99,54 +128,62 @@ self.addEventListener('fetch', (event) => {
 
   // 仅处理 GET 请求，且协议为 http 或 https
   if (event.request.method !== 'GET' || !requestUrl.protocol.startsWith('http')) {
-    return; // 非 GET 请求或非 HTTP/HTTPS 请求，直接由浏览器处理
+    // 对于非 GET 或非 HTTP(S) 请求，直接由浏览器处理
+    // console.log(`[Service Worker] Ignoring non-GET/non-HTTP(S) request: ${event.request.method} ${event.request.url}`);
+    return;
   }
 
-  // 对于同源请求（或我们明确要缓存的 CDN 请求），采用 Cache First 策略
-  // 注意：对于跨域请求（如 CDN），需要确保服务器设置了正确的 CORS 头
-  // 否则 fetch 可能会失败，或者得到不透明响应 (Opaque Response) 而无法判断是否成功。
+  // 采用 Cache First 策略
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
+    caches.match(event.request, { ignoreVary: true }) // ignoreVary can help match opaque responses
+      .then((cachedResponse) => {
         // 如果在缓存中找到匹配的响应
-        if (response) {
+        if (cachedResponse) {
           // console.log(`[Service Worker] Serving from cache: ${event.request.url}`);
-          return response; // 直接返回缓存的响应
+          return cachedResponse; // 直接返回缓存的响应
         }
 
         // 如果缓存中没有找到，则尝试从网络获取
         // console.log(`[Service Worker] Fetching from network: ${event.request.url}`);
         return fetch(event.request).then(
           (networkResponse) => {
-            // 检查是否收到了有效的响应
-            // 对于基本类型请求（同源），检查 response.ok
-            // 对于跨域请求，如果得到不透明响应 (status=0, type='opaque')，我们无法检查其内容
-            // 但仍然可以尝试缓存它。如果 CDN 配置了 CORS，则可以检查 response.ok
+            // 检查是否收到了有效的响应 (ok or opaque)
             if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
               // 克隆响应，因为响应体只能被读取一次
               const responseToCache = networkResponse.clone();
 
-              // 尝试将网络响应添加到缓存中
+              // 尝试将网络响应添加到缓存中 (异步操作，不阻塞返回网络响应)
               caches.open(CACHE_NAME)
                 .then((cache) => {
                   // console.log(`[Service Worker] Caching new response: ${event.request.url}`);
-                  cache.put(event.request, responseToCache);
+                  cache.put(event.request, responseToCache).catch(cachePutError => {
+                    console.warn(`[Service Worker] Failed to cache response for ${event.request.url}:`, cachePutError);
+                    // Especially handle QuotaExceededError if storage is full
+                    if (cachePutError.name === 'QuotaExceededError') {
+                       console.error('[Service Worker] Cache storage quota exceeded. Cannot cache new items.');
+                       // Optionally, implement cache cleanup logic here
+                    }
+                  });
                 });
-            } else if (!networkResponse) {
-               console.error(`[Service Worker] Network fetch failed for: ${event.request.url}, received null/undefined response.`);
             } else {
-               console.warn(`[Service Worker] Network fetch failed or received non-OK response for: ${event.request.url}, Status: ${networkResponse.status}`);
+               console.warn(`[Service Worker] Network fetch failed or received non-OK response for: ${event.request.url}, Status: ${networkResponse?.status}, Type: ${networkResponse?.type}`);
             }
 
-            // 返回从网络获取的原始响应
+            // 返回从网络获取的原始响应 (即使缓存失败)
             return networkResponse;
           }
         ).catch(error => {
-          console.error(`[Service Worker] Fetch failed for: ${event.request.url}`, error);
-          // 可选：在这里提供一个通用的离线回退页面或资源
-          // return caches.match('/offline.html'); // 如果您有一个离线页面
-          // 对于此应用，如果核心 JS/CSS 加载失败，页面可能无法正常工作，
-          // 因此返回错误或不返回任何内容可能更合适。
+          console.error(`[Service Worker] Fetch failed entirely for: ${event.request.url}`, error);
+          // 如果网络请求失败，可以尝试返回一个离线占位符页面或资源
+          // 例如: return caches.match('/offline.html');
+          // 对于 JS/CSS 等关键资源，失败可能导致应用无法工作，所以可能返回错误更合适
+          // 对于 API 请求，可能返回一个表示离线的 JSON
+          // 对于此应用，若核心资源加载失败，直接失败可能更清晰
+          // 返回一个基本的错误响应
+           return new Response(`Network error: ${error.message}`, {
+             status: 408, // Request Timeout
+             headers: { 'Content-Type': 'text/plain' },
+           });
         });
       })
   );
