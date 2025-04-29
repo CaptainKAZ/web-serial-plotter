@@ -9,13 +9,15 @@ let terminalInstance = null;
 let fitAddonInstance = null;
 let rawStrBtnElement = null;
 let rawHexBtnElement = null;
+let terminalEncodingSelectElement = null; // NEW: Reference to the encoding select dropdown
 let parsedDataDisplayElement = null;
 let isInitialized = false;
 let textDecoder = null; // For decoding raw bytes
+let currentEncoding = "utf-8"; // Default encoding, will be updated by recommendation
 
 // Configuration and state for buffering/updates
 let internalConfig = {
-  rawDisplayMode: "str",
+  rawDisplayMode: "str", // Initial display mode
 };
 let rawOutputBuffer = ""; // Buffer for raw terminal lines
 let lastTerminalWriteTime = 0; // Timestamp of last terminal write
@@ -49,6 +51,8 @@ function handleInternalFormatChange(newMode) {
     internalConfig.rawDisplayMode = newMode;
     rawStrBtnElement?.classList.toggle("active", newMode === "str");
     rawHexBtnElement?.classList.toggle("active", newMode === "hex");
+
+
     if (terminalInstance)
       terminalInstance.write(
         `\r\n--- Display Mode Changed to ${internalConfig.rawDisplayMode.toUpperCase()} ---\r\n`
@@ -56,9 +60,61 @@ function handleInternalFormatChange(newMode) {
   }
 }
 
-// Bound event handlers
-let boundStrHandler = () => handleInternalFormatChange("str");
-let boundHexHandler = () => handleInternalFormatChange("hex");
+// --- Encoding Handling ---
+
+// Tries to recommend an encoding based on browser language
+function getRecommendedEncoding() {
+  const lang = (navigator.language || navigator.userLanguage || "").toLowerCase();
+  if (lang.startsWith("zh")) return "gbk"; // Simplified Chinese
+  if (lang.startsWith("ja")) return "shift_jis"; // Japanese
+  if (lang.startsWith("ko")) return "euc-kr"; // Korean
+  // Default to UTF-8 for others
+  return "utf-8";
+}
+
+// Handles changing the active text encoding based on dropdown selection
+function handleEncodingChange() {
+    if (!terminalEncodingSelectElement) return;
+    const newEncoding = terminalEncodingSelectElement.value;
+    console.log(`Attempting to change encoding to: ${newEncoding}`);
+
+    try {
+        // Test if the encoding is valid by creating a temporary decoder
+        new TextDecoder(newEncoding);
+
+        // Update the main TextDecoder instance
+        textDecoder = new TextDecoder(newEncoding, { fatal: false }); // Use fatal: false to avoid throwing on errors
+        currentEncoding = newEncoding; // Update state only if valid
+        console.log(`TextDecoder updated to ${currentEncoding}`);
+
+        // Ensure display mode is 'str' when changing encoding
+        if (internalConfig.rawDisplayMode !== "str") {
+            handleInternalFormatChange("str"); // Switch to text view (will also log the mode change)
+        } else {
+            // If already in 'str' mode, just log the encoding change
+            if (terminalInstance) {
+                terminalInstance.write(
+                    `\r\n--- Text Encoding Changed to ${currentEncoding.toUpperCase()} ---\r\n`
+                );
+            }
+        }
+
+    } catch (error) {
+        console.error(`Failed to set encoding ${newEncoding}:`, error);
+        // Revert the dropdown selection back to the previous valid encoding
+        terminalEncodingSelectElement.value = currentEncoding;
+        if (terminalInstance) {
+            terminalInstance.write(
+                `\r\n--- Error: Invalid encoding '${newEncoding}'. Reverted to ${currentEncoding.toUpperCase()}. ---\r\n`
+            );
+        }
+    }
+}
+
+
+// Bound event handlers for STR/HEX mode buttons
+let boundStrModeHandler = () => handleInternalFormatChange("str"); // STR button changes display mode to text
+let boundHexModeHandler = () => handleInternalFormatChange("hex"); // HEX button changes display mode to hex
 
 // Helper to flush the raw output buffer immediately
 function flushRawOutputBuffer() {
@@ -94,14 +150,16 @@ export function create(elementId, initialState = {}) {
     containerElement.querySelector("#parsedDataDisplay");
   rawStrBtnElement = containerElement.querySelector("#rawStrBtn");
   rawHexBtnElement = containerElement.querySelector("#rawHexBtn");
+  terminalEncodingSelectElement = containerElement.querySelector("#terminalEncodingSelect"); // Get the select element
 
   if (
     !targetDiv ||
     !parsedDataDisplayElement ||
     !rawStrBtnElement ||
-    !rawHexBtnElement
+    !rawHexBtnElement ||
+    !terminalEncodingSelectElement // Check for the select element
   ) {
-    console.error("Terminal Module: Could not find all internal elements.");
+    console.error("Terminal Module: Could not find all required internal elements.");
     return false;
   }
   const Terminal = window.Terminal;
@@ -117,7 +175,19 @@ export function create(elementId, initialState = {}) {
   // Initialize state variables
   rawOutputBuffer = "";
   lastTerminalWriteTime = 0;
-  textDecoder = new TextDecoder("utf-8", { fatal: false });
+  // Set initial encoding based on recommendation
+  const recommendedEncoding = getRecommendedEncoding();
+  currentEncoding = recommendedEncoding;
+  terminalEncodingSelectElement.value = currentEncoding; // Set dropdown to recommended value
+
+  try {
+    textDecoder = new TextDecoder(currentEncoding, { fatal: false }); // Initialize with recommended encoding
+  } catch (e) {
+    console.error(`Failed to initialize TextDecoder with recommended encoding ${currentEncoding}:`, e);
+    currentEncoding = "utf-8"; // Fallback to UTF-8
+    terminalEncodingSelectElement.value = currentEncoding;
+    textDecoder = new TextDecoder(currentEncoding, { fatal: false });
+  }
 
   try {
     terminalInstance = new Terminal({
@@ -141,18 +211,15 @@ export function create(elementId, initialState = {}) {
     fitAddonInstance.fit();
     terminalInstance.write(`Terminal Initialized.\r\n`);
     updateParsedDataDisplayInternal([]);
+    // Initial UI state: STR active, HEX inactive, encoding select visible
+    rawStrBtnElement.classList.add("active");
+    rawHexBtnElement.classList.remove("active");
+    terminalEncodingSelectElement.parentElement.style.display = ''; // Ensure encoding select is visible initially
 
-    // Set up buttons
-    rawStrBtnElement.classList.toggle(
-      "active",
-      internalConfig.rawDisplayMode === "str"
-    );
-    rawHexBtnElement.classList.toggle(
-      "active",
-      internalConfig.rawDisplayMode === "hex"
-    );
-    rawStrBtnElement.addEventListener("click", boundStrHandler);
-    rawHexBtnElement.addEventListener("click", boundHexHandler);
+    // Set up buttons and select dropdown
+    rawStrBtnElement.addEventListener("click", boundStrModeHandler); // Use new handler
+    rawHexBtnElement.addEventListener("click", boundHexModeHandler); // Use new handler
+    terminalEncodingSelectElement.addEventListener("change", handleEncodingChange); // Listen for dropdown changes
 
     isInitialized = true;
     console.log(
@@ -194,21 +261,39 @@ export function processDataBatch(batch) {
     let displayLine = "";
 
     if (rawLineBytes instanceof Uint8Array && rawLineBytes.byteLength > 0) {
+      // --- Display based on mode ---
       if (internalConfig.rawDisplayMode === "hex") {
+        // Show HEX button now that we have raw bytes (if not already visible)
+        if (rawHexBtnElement?.classList.contains("hidden")) {
+            rawHexBtnElement.classList.remove("hidden");
+        }
         displayLine = Array.prototype.map
           .call(rawLineBytes, (b) =>
             b.toString(16).toUpperCase().padStart(2, "0")
           )
           .join(" ");
       } else {
-        // STR mode
+        // STR mode (uses currentEncoding via textDecoder)
         try {
+          // Ensure textDecoder is initialized and using the current encoding
+          if (!textDecoder) {
+              try {
+                  textDecoder = new TextDecoder(currentEncoding, { fatal: false });
+              } catch (err) {
+                  console.error(`Failed to initialize TextDecoder with ${currentEncoding}, falling back to utf-8`, err);
+                  currentEncoding = 'utf-8';
+                  terminalEncodingSelectElement.value = currentEncoding; // Update dropdown if fallback occurs
+                  textDecoder = new TextDecoder(currentEncoding, { fatal: false });
+              }
+          }
           let decodedString = textDecoder
-            .decode(rawLineBytes, { stream: false })
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ".");
+            .decode(rawLineBytes, { stream: false }) // Use stream: false for complete lines
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "."); // Replace non-printable chars
           displayLine = decodedString.trimEnd(); // Remove trailing whitespace/newlines from source data
         } catch (e) {
+          console.warn(`Decoding error with ${currentEncoding}:`, e);
           displayLine = "[Decode Error]";
+          // No automatic fallback here, user must select a working encoding
         }
       }
     } else if (Array.isArray(values) && values.length > 0) {
@@ -281,25 +366,35 @@ export function destroy() {
   flushRawOutputBuffer(); // Flush pending output first
 
   isInitialized = false;
+
+  // Remove event listeners
   if (rawStrBtnElement) {
-    rawStrBtnElement.removeEventListener("click", boundStrHandler);
+    rawStrBtnElement.removeEventListener("click", boundStrModeHandler);
     rawStrBtnElement = null;
   }
   if (rawHexBtnElement) {
-    rawHexBtnElement.removeEventListener("click", boundHexHandler);
+    rawHexBtnElement.removeEventListener("click", boundHexModeHandler);
     rawHexBtnElement = null;
   }
+  if (terminalEncodingSelectElement) {
+      terminalEncodingSelectElement.removeEventListener("change", handleEncodingChange);
+      terminalEncodingSelectElement = null;
+  }
+
+  // Dispose terminal
   if (terminalInstance) {
     terminalInstance.dispose();
   }
 
+  // Reset state variables
   terminalInstance = null;
   fitAddonInstance = null;
   parsedDataDisplayElement = null;
   textDecoder = null;
   rawOutputBuffer = "";
   lastTerminalWriteTime = 0;
-  internalConfig = { rawDisplayMode: "str" };
+  currentEncoding = "utf-8"; // Reset to default
+  internalConfig = { rawDisplayMode: "str" }; // Reset config
 
   console.log("Terminal Module Destroyed.");
 }

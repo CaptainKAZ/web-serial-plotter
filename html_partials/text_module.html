@@ -3,8 +3,32 @@
     <h3>原始数据显示</h3>
     <div class="module-controls">
       <div class="data-format-controls">
-        <button id="rawStrBtn" class="active">STR</button>
         <button id="rawHexBtn">HEX</button>
+        <button id="rawStrBtn" class="active">STR</button>
+      </div>
+      <div class="encoding-controls ml-0.5">
+        <label for="terminalEncodingSelect" class="text-xs mr-1">编码:</label>
+        <!-- Added more encoding options, including ascii -->
+        <select id="terminalEncodingSelect" class="text-xs p-0.5 rounded border border-gray-300">
+          <option value="utf-8">UTF-8</option>
+          <option value="ascii">ASCII</option>
+          <option value="iso-8859-1">ISO-8859-1 (Latin1)</option>
+          <option value="windows-1252">Windows-1252</option>
+          <option value="gbk">GBK (简体中文)</option>
+          <option value="gb18030">GB18030 (简体中文)</option>
+          <option value="big5">Big5 (繁体中文)</option>
+          <option value="shift_jis">Shift-JIS (日文)</option>
+          <option value="euc-jp">EUC-JP (日文)</option>
+          <option value="euc-kr">EUC-KR (韩文)</option>
+          <option value="iso-8859-2">ISO-8859-2 (Latin2)</option>
+          <option value="iso-8859-5">ISO-8859-5 (Cyrillic)</option>
+          <option value="iso-8859-7">ISO-8859-7 (Greek)</option>
+          <option value="iso-8859-8">ISO-8859-8 (Hebrew)</option>
+          <option value="iso-8859-15">ISO-8859-15 (Latin9)</option>
+          <option value="windows-1251">Windows-1251 (Cyrillic)</option>
+          <option value="windows-1256">Windows-1256 (Arabic)</option>
+          <!-- Add more as needed -->
+        </select>
       </div>
       <button class="module-fullscreen-button" data-target-module-id="textModule" title="全屏/还原">
         <i data-lucide="maximize"></i>
