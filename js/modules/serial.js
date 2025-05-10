@@ -1,14 +1,15 @@
-// js/modules/serial.js (Refactored as SerialService using EventBus)
+// js/modules/serial.js
 import { eventBus } from "../event_bus.js";
 
-let serialPort = null; // 内部状态，存储当前连接的端口
-let isConnectedState = false; // 内部连接状态标志
-let currentDisconnectHandler = null; // 存储事件处理器引用以便移除
+let serialPort = null;
+let isConnectedState = false;
+let currentDisconnectHandler = null;
+let writableStreamDefaultWriter = null;
 
 /**
- * 尝试连接到用户选择的串口。
- * @param {object} options - 连接选项 (baudRate, dataBits, etc.)
- * @returns {Promise<boolean>} 连接是否成功
+ * Attempts to connect to a user-selected serial port.
+ * @param {object} options - Connection options (baudRate, dataBits, etc.)
+ * @returns {Promise<boolean>} True if connection was successful.
  */
 async function connect(options) {
   if (!("serial" in navigator)) {
@@ -19,31 +20,40 @@ async function connect(options) {
     console.warn(
       "SerialService: Connect called while already connected. Disconnecting first."
     );
-    await disconnect(); // 先断开
+    await disconnect();
   }
 
-  // 验证传入的 options 是否包含有效的 baudRate
   if (!options || !options.baudRate || options.baudRate <= 0) {
     eventBus.emit("serial:error", new Error("连接失败：未提供有效的波特率。"));
     return false;
   }
 
   try {
-    eventBus.emit("serial:status", "请求串口权限..."); // 发送状态事件
+    eventBus.emit("serial:status", "请求串口权限...");
     const requestedPort = await navigator.serial.requestPort();
     eventBus.emit("serial:status", "正在打开串口...");
 
-    // 使用传入的完整 options 打开端口
     await requestedPort.open(options);
 
-    serialPort = requestedPort; // 存储端口引用
+    serialPort = requestedPort;
     isConnectedState = true;
-    console.log("SerialService: Port opened successfully.", options);
-    eventBus.emit("serial:connected", { portInfo: requestedPort.getInfo() }); // 触发连接成功事件
 
-    // 添加断开连接监听器
-    removeExternalDisconnectListener(); // 先移除旧的，防止重复添加
-    currentDisconnectHandler = (event) => handleExternalDisconnect(event); // 创建新的处理器
+    // --- NEW: Get and store the writer ---
+    if (serialPort.writable) {
+      writableStreamDefaultWriter = serialPort.writable.getWriter();
+      console.log("SerialService: Writable stream writer obtained.");
+    } else {
+      console.warn("SerialService: Port is not writable.");
+      // This might not be an error if the use case is read-only,
+      // but for Aresplot, we'll need it.
+    }
+    // --- END NEW ---
+
+    console.log("SerialService: Port opened successfully.", options);
+    eventBus.emit("serial:connected", { portInfo: requestedPort.getInfo() });
+
+    removeExternalDisconnectListener();
+    currentDisconnectHandler = (event) => handleExternalDisconnect(event);
     navigator.serial.addEventListener("disconnect", currentDisconnectHandler);
 
     return true;
@@ -54,101 +64,130 @@ async function connect(options) {
       error.message
     );
     let userMessage = `串口连接失败: ${error.message}`;
-    if (error.name === "NotFoundError") {
-      userMessage = "未选择串口。";
-    } else if (error.name === "InvalidStateError") {
+    if (error.name === "NotFoundError") userMessage = "未选择串口。";
+    else if (error.name === "InvalidStateError")
       userMessage = `串口打开失败 (已被占用?): ${error.message}`;
-    }
     eventBus.emit("serial:error", new Error(userMessage));
-    serialPort = null;
-    isConnectedState = false;
+    await cleanupConnectionState(requestedPort); // Pass port to cleanup
     return false;
   }
 }
 
 /**
- * 断开当前连接的串口。
- * @returns {Promise<boolean>} 断开是否成功
+ * Disconnects the currently connected serial port.
+ * @returns {Promise<boolean>} True if disconnection was successful or already disconnected.
  */
 async function disconnect() {
-  if (!serialPort) {
-    console.warn("SerialService: Disconnect called but no port connected.");
-    // 确保状态和监听器被清理
-    cleanupConnectionState();
-    return true; // 已经是断开状态
+  const portToClose = serialPort; // Capture current port reference
+  await cleanupConnectionState(portToClose); // Pass port for specific cleanup
+
+  if (portToClose) {
+    eventBus.emit("serial:status", "正在关闭串口...");
+    try {
+      // Note: readable might have been transferred, so only close the port itself
+      await portToClose.close();
+      console.log("SerialService: Port closed successfully.");
+      eventBus.emit("serial:disconnected");
+      return true;
+    } catch (error) {
+      console.warn(`SerialService: Error closing port: ${error.message}`);
+      eventBus.emit(
+        "serial:error",
+        new Error(`关闭串口时出错: ${error.message}`)
+      );
+      return false;
+    }
+  }
+  return true; // Already disconnected
+}
+
+/**
+ * Writes data to the connected serial port.
+ * @param {Uint8Array|ArrayBuffer} data - The data to write.
+ * @returns {Promise<void>}
+ * @throws {Error} if not connected, port not writable, or write fails.
+ */
+async function write(data) {
+  if (!isConnectedState || !serialPort || !serialPort.writable) {
+    throw new Error("SerialService: Not connected or port not writable.");
+  }
+  if (!writableStreamDefaultWriter) {
+    // Attempt to get writer again if it wasn't obtained during connect or was released
+    try {
+      writableStreamDefaultWriter = serialPort.writable.getWriter();
+      console.log("SerialService: Re-acquired writable stream writer.");
+    } catch (e) {
+      throw new Error(`SerialService: Failed to get writer: ${e.message}`);
+    }
   }
 
-  const portToClose = serialPort; // 暂存引用
-  // 清理状态和监听器 *之前* 尝试 close，因为 close 可能需要时间或出错
-  cleanupConnectionState();
-  eventBus.emit("serial:status", "正在关闭串口...");
-
   try {
-    // 注意：如果 ReadableStream 已经被传输到 Worker，这里的 cancel/close 可能作用有限
-    // Worker 中的读取循环应该在收到 stop 指令或流关闭时自行停止
-    // 这里主要是关闭主线程持有的 Port 对象引用
-    await portToClose.close();
-    console.log("SerialService: Port closed successfully.");
-    eventBus.emit("serial:disconnected"); // 触发断开事件
-    return true;
+    await writableStreamDefaultWriter.write(data);
+    // console.debug("SerialService: Data written successfully:", data);
   } catch (error) {
-    console.warn(`SerialService: Error closing port: ${error.message}`);
-    eventBus.emit(
-      "serial:error",
-      new Error(`关闭串口时出错: ${error.message}`)
-    );
-    return false; // 关闭失败
+    console.error("SerialService: Error writing data:", error);
+    // Attempt to gracefully handle writer errors, potentially by releasing and trying to reacquire next time
+    try {
+      writableStreamDefaultWriter.releaseLock();
+      writableStreamDefaultWriter = null;
+      console.warn(
+        "SerialService: Writer released due to write error. Will attempt to reacquire on next write."
+      );
+    } catch (releaseError) {
+      console.error(
+        "SerialService: Error releasing writer after write error:",
+        releaseError
+      );
+    }
+    throw new Error(`SerialService: Write failed: ${error.message}`);
   }
 }
 
 /**
- * 检查当前是否连接到串口。
+ * Checks if currently connected to a serial port.
  * @returns {boolean}
  */
 function isConnected() {
-  // 注意：即使端口对象存在，物理连接也可能丢失。
-  // isConnectedState 提供了一个更可靠的内部状态。
-  // return serialPort !== null && serialPort.readable; // 旧方式不可靠
-  return isConnectedState;
+  return isConnectedState && serialPort !== null;
 }
 
 /**
- * 获取当前端口的可读流 (如果需要传递给 Worker)。
- * 仅在主线程需要直接访问流时使用，通常在连接成功后立即获取并传递。
+ * Gets the readable stream of the current port.
  * @returns {ReadableStream | null}
  */
 function getReadableStream() {
-  if (serialPort && serialPort.readable) {
+  if (serialPort && serialPort.readable && !serialPort.readable.locked) {
+    // Check if not locked
     return serialPort.readable;
+  }
+  if (serialPort && serialPort.readable && serialPort.readable.locked) {
+    console.warn("SerialService: ReadableStream is locked. Cannot transfer.");
   }
   return null;
 }
 
-// --- 内部辅助函数 ---
-
 /**
- * 处理来自浏览器的外部 'disconnect' 事件。
- * @param {Event} event
+ * (Internal) Gets the raw SerialPort object. Use with caution.
+ * Needed by main.js to potentially re-acquire writer if it gets into a bad state,
+ * or for advanced operations.
+ * @returns {SerialPort | null}
  */
+function getInternalPortReference() {
+  return serialPort;
+}
+
+// --- Internal helper functions ---
+
 function handleExternalDisconnect(event) {
-  // 检查断开的端口是否是我们当前连接的端口
   if (serialPort && event.target === serialPort) {
     console.warn(
-      "SerialService: External disconnect event detected for the connected port."
+      "SerialService: External disconnect event for the connected port."
     );
-    // 清理状态并触发事件
-    cleanupConnectionState();
-    eventBus.emit("serial:disconnected", { external: true }); // 触发断开事件，标记为外部触发
-  } else {
-    console.log(
-      "SerialService: Ignoring external disconnect event for unrelated port."
-    );
+    cleanupConnectionState(serialPort); // Pass the port that disconnected
+    eventBus.emit("serial:disconnected", { external: true });
   }
 }
 
-/**
- * 移除外部断开连接的事件监听器。
- */
 function removeExternalDisconnectListener() {
   if (currentDisconnectHandler) {
     navigator.serial.removeEventListener(
@@ -156,19 +195,82 @@ function removeExternalDisconnectListener() {
       currentDisconnectHandler
     );
     currentDisconnectHandler = null;
-    // console.log("SerialService: Removed external disconnect listener.");
   }
 }
 
 /**
- * 清理内部连接状态和监听器。
+ * Cleans up internal connection state and releases resources.
+ * @param {SerialPort | null} portInstance - The specific port instance to clean up resources for.
  */
-function cleanupConnectionState() {
-  removeExternalDisconnectListener();
-  serialPort = null;
-  isConnectedState = false;
-  // console.log("SerialService: Connection state cleaned up.");
+async function cleanupConnectionState(portInstance) {
+  removeExternalDisconnectListener(); // General listener removal
+
+  // Release writer specifically for the portInstance if it matches the active one
+  if (
+    writableStreamDefaultWriter &&
+    portInstance &&
+    serialPort === portInstance
+  ) {
+    try {
+      // Check if port is still open before trying to abort/release
+      if (portInstance.writable) {
+        // Check if writable exists (might be null if port closed abruptly)
+        await writableStreamDefaultWriter
+          .abort()
+          .catch((e) =>
+            console.warn(
+              "SerialService: Error aborting writer during cleanup:",
+              e
+            )
+          );
+      }
+    } catch (e) {
+      console.warn(
+        "SerialService: Exception during writer abort in cleanup (port might be already closed):",
+        e
+      );
+    } finally {
+      try {
+        // The lock might be released by abort, or if not, try to release it.
+        // This can error if already released or if the stream is broken.
+        if (
+          writableStreamDefaultWriter &&
+          typeof writableStreamDefaultWriter.releaseLock === "function"
+        ) {
+          writableStreamDefaultWriter.releaseLock();
+        }
+      } catch (e) {
+        console.warn(
+          "SerialService: Exception during writer releaseLock in cleanup:",
+          e
+        );
+      }
+      writableStreamDefaultWriter = null;
+      console.log("SerialService: Writable stream writer released and nulled.");
+    }
+  } else if (writableStreamDefaultWriter && !portInstance) {
+    // If called without a specific port (e.g., general disconnect), clear the global writer
+    writableStreamDefaultWriter = null;
+  }
+
+  // If cleaning up the active port, reset global state
+  if (portInstance && serialPort === portInstance) {
+    serialPort = null;
+    isConnectedState = false;
+  } else if (!portInstance) {
+    // General cleanup if no specific port given
+    serialPort = null;
+    isConnectedState = false;
+  }
+  // console.log("SerialService: Connection state potentially cleaned up.");
 }
 
-// 导出公共接口
-export { connect, disconnect, isConnected, getReadableStream };
+// Export public interface
+export {
+  connect,
+  disconnect,
+  write,
+  isConnected,
+  getReadableStream,
+  getInternalPortReference,
+};

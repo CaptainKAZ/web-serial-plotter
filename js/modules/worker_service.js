@@ -5,8 +5,8 @@ let worker = null;
 let workerUrl = null; // 用于释放 Object URL
 
 /**
- * 初始化 Worker Service，创建 Web Worker。
- * @returns {Promise<boolean>} 初始化成功或失败
+ * Initializes the Worker Service, creating the Web Worker as an ES module.
+ * @returns {Promise<boolean>} True if initialization was successful.
  */
 async function init() {
   if (worker) {
@@ -14,63 +14,49 @@ async function init() {
     return true;
   }
   try {
-    const workerResponse = await fetch("js/worker/data_worker.js");
-    if (!workerResponse.ok)
-      throw new Error(
-        `Failed to fetch worker script: ${workerResponse.statusText}`
-      );
-    const workerCode = await workerResponse.text();
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    workerUrl = URL.createObjectURL(blob);
-    worker = new Worker(workerUrl);
-
-    // 设置 Worker 消息监听器
+    const workerScriptPath = 'js/worker/data_worker.js';
+    console.log(`WorkerService: Attempting to load worker from: ${workerScriptPath}`);
+    worker = new Worker(workerScriptPath, { type: "module" });
     worker.onmessage = (event) => {
       const { type, payload } = event.data;
+      // ... (rest of existing onmessage handler)
       switch (type) {
         case "dataBatch":
           eventBus.emit("worker:dataBatch", payload);
           break;
-        case "status":
+        case "status": // General status messages from worker
           eventBus.emit("worker:status", payload);
+          break;
+        case "info": // For less critical info messages, e.g., timestamp sync
+          eventBus.emit("worker:info", payload); // You might need to add listener in main.js
+          break;
+        case "warn": // For warnings
+          eventBus.emit("worker:warn", payload);
           break;
         case "error":
           console.error("Worker reported error:", payload);
-          eventBus.emit("worker:error", new Error(payload)); // 将错误包装成 Error 对象
-          break;
-        case "warn":
-          console.warn("Worker warning:", payload);
-          eventBus.emit("worker:warn", payload);
+          eventBus.emit("worker:error", new Error(typeof payload === 'string' ? payload : payload.message || "Unknown worker error"));
           break;
         default:
-          console.log(
-            "WorkerService received unknown message type from worker:",
-            type
-          );
+          console.log("WorkerService received unhandled message type from worker:", type, payload);
       }
     };
 
-    // 设置 Worker 错误监听器
     worker.onerror = (error) => {
-      console.error("Unhandled Worker Error Event:", error);
-      eventBus.emit("worker:error", error); // 转发错误事件
-      // Consider terminating worker on unrecoverable error?
-      // terminate();
+      console.error("Unhandled Worker Error Event in WorkerService:", error);
+      eventBus.emit("worker:error", error);
     };
 
-    console.log("WorkerService initialized, Worker created.");
+    console.log("WorkerService initialized, Worker (as module) created.");
     return true;
   } catch (error) {
     console.error("WorkerService initialization failed:", error);
-    eventBus.emit(
-      "worker:error",
-      new Error(`Worker initialization failed: ${error.message}`)
-    );
-    worker = null;
+    eventBus.emit("worker:error", new Error(`Worker initialization failed: ${error.message}`));
     if (workerUrl) {
-      URL.revokeObjectURL(workerUrl);
+      URL.revokeObjectURL(workerUrl); // Clean up blob URL if worker creation failed
       workerUrl = null;
     }
+    worker = null;
     return false;
   }
 }

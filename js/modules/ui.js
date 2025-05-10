@@ -75,6 +75,16 @@ function queryElements() {
     textModulePlaceholder: get("textModule"),
     quatModulePlaceholder: get("quatModule"),
     quatModuleContainer: get("quatModuleContainer"),
+    aresplotControlsSection: get("aresplotControlsSection"),
+    elfDropZone: get("elfDropZone"),
+    elfFileInput: get("elfFileInput"),
+    elfName: get("elfName"),
+    elfStatusMessage: get("elfStatusMessage"),
+    symbolSearchArea: get("symbolSearchArea"),
+    symbolSearchInput: get("symbolSearchInput"),
+    symbolDatalist: get("symbolDatalist"),
+    addSymbolButton: get("addSymbolButton"),
+    symbolSlotsContainer: get("symbolSlotsContainer"),
   };
   lastValidBaudRate =
     domElements.baudRateInput?.value || String(DEFAULT_BAUD_RATE);
@@ -242,6 +252,508 @@ function sortDatalistOptions(datalistElement) {
   optionsArray.forEach((opt) => datalistElement.appendChild(opt));
 }
 
+// Add this helper function within ui.js or call it from main.js
+function handleElfFile(file) {
+  if (file && file.name.toLowerCase().endsWith(".elf")) {
+    // Emit an event with the valid file object
+    eventBus.emit("ui:elfFileSelected", { file: file });
+    // Optionally update status message immediately
+    if (domElements.elfStatusMessage) {
+      domElements.elfStatusMessage.textContent = `Selected file: ${file.name}`;
+      domElements.elfStatusMessage.classList.remove("text-red-500");
+      domElements.elfName.textContent = file.name;
+      domElements.elfName.classList.remove("text-blue-600");
+    }
+  } else if (file) {
+    // Handle invalid file type
+    console.warn("Invalid file type selected:", file.name);
+    if (domElements.elfStatusMessage) {
+      domElements.elfStatusMessage.textContent =
+        "Error: Please select a .elf file.";
+      domElements.elfStatusMessage.classList.add("text-red-500");
+    }
+  }
+  if (domElements.elfFileInput) {
+    domElements.elfFileInput.value = "";
+  }
+}
+
+// Function to setup listeners (call this during UI initialization)
+function setupAresplotListeners() {
+  if (!domElements.elfDropZone || !domElements.elfFileInput) {
+    console.warn(
+      "Could not find ELF Drop Zone or File Input elements for listeners."
+    );
+    return;
+  }
+
+  const dropZone = domElements.elfDropZone;
+  const fileInput = domElements.elfFileInput;
+
+  // 1. Trigger hidden file input click when drop zone is clicked
+  dropZone.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  // 2. Handle file selection via the hidden input
+  fileInput.addEventListener("change", (event) => {
+    if (event.target.files && event.target.files.length > 0) {
+      handleElfFile(event.target.files[0]);
+    }
+  });
+
+  // 3. Drag and Drop listeners for the drop zone
+  dropZone.addEventListener("dragenter", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dropZone.classList.add("drag-over");
+  });
+
+  dropZone.addEventListener("dragover", (event) => {
+    event.preventDefault(); // Necessary to allow drop
+    event.stopPropagation();
+    dropZone.classList.add("drag-over"); // Keep class while dragging over
+  });
+
+  dropZone.addEventListener("dragleave", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // Only remove class if the leave target isn't a child element
+    if (event.relatedTarget && !dropZone.contains(event.relatedTarget)) {
+      dropZone.classList.remove("drag-over");
+    } else if (!event.relatedTarget) {
+      // Handles leaving the browser window
+      dropZone.classList.remove("drag-over");
+    }
+  });
+
+  dropZone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dropZone.classList.remove("drag-over");
+
+    if (
+      event.dataTransfer &&
+      event.dataTransfer.files &&
+      event.dataTransfer.files.length > 0
+    ) {
+      handleElfFile(event.dataTransfer.files[0]);
+      // Clear the dataTransfer buffer (good practice)
+      if (event.dataTransfer.items) {
+        event.dataTransfer.items.clear();
+      } else {
+        event.dataTransfer.clearData();
+      }
+    }
+  });
+
+  if (domElements.symbolSearchInput && domElements.addSymbolButton) {
+    const searchInput = domElements.symbolSearchInput;
+    const addButton = domElements.addSymbolButton;
+
+    // 1. Input event listener (debounced) - ONLY triggers search for suggestions
+    searchInput.addEventListener(
+      "input",
+      debounce((event) => {
+        eventBus.emit("ui:symbolSearchChanged", { term: event.target.value });
+        eventBus.emit("ui:symbolInputValidated", { value: event.target.value });
+        // DO NOT set button state here anymore
+      }, 100)
+    );
+
+    // 2. Change event listener - Triggers validation of the final value
+    searchInput.addEventListener("change", (event) => {
+      eventBus.emit("ui:symbolInputValidated", { value: event.target.value });
+    });
+
+    // 3. Blur event listener - Also triggers validation when focus is lost
+    searchInput.addEventListener("blur", (event) => {
+      eventBus.emit("ui:symbolInputValidated", { value: event.target.value });
+    });
+
+    // 4. Add button click listener (remains the same)
+    addButton.addEventListener("click", () => {
+      const selectedValue = searchInput.value;
+      if (selectedValue.trim() !== "") {
+        eventBus.emit("ui:symbolSelectedForAdd", { value: selectedValue });
+      }
+    });
+
+    // 5. Enter key listener (remains the same)
+    searchInput.addEventListener("keypress", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const selectedValue = searchInput.value;
+        // Trigger ADD directly on Enter if button would be enabled
+        // We can perhaps trigger validation first, then add if valid?
+        // Simpler: just trigger the add action, it will validate internally.
+        if (selectedValue.trim() !== "") {
+          eventBus.emit("ui:symbolSelectedForAdd", { value: selectedValue });
+        }
+      }
+    });
+  } else {
+    console.warn(
+      "Could not find Symbol Search Input or Add Button elements for listeners."
+    );
+  }
+
+  // Prevent dropping files outside the drop zone if needed (optional)
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => e.preventDefault());
+}
+
+// --- Symbol Slot Management ---
+const MAX_SLOTS = 10;
+let selectedSymbolsInSlots = []; // Array to hold the symbol objects in the slots
+let sortableInstance = null;
+
+/**
+ * Infers a display type string (e.g., "(u32)", "(f32)") based on symbol's type_name and size.
+ * Augments the symbol object with a `_displayType` property.
+ * @param {object} symbol - The symbol object from ELF analysis.
+ * @returns {object} The symbol object augmented with a `_displayType` property.
+ */
+export function formatAndStoreDisplayType(symbol) {
+  // Export if main.js needs it directly
+  if (!symbol) return symbol; // Should not happen
+  let displayType = "";
+  const typeName = symbol.type_name ? symbol.type_name.toLowerCase() : "";
+  const size = symbol.size; // in bytes
+
+  if (typeName.includes("float") || typeName.includes("f32")) {
+    displayType = "(f32)";
+  } else if (typeName.includes("double") || typeName.includes("f64")) {
+    displayType = "(f64)";
+  } else if (
+    typeName.includes("*") ||
+    typeName === "pointer" ||
+    typeName === "ptr"
+  ) {
+    if (size === 4) displayType = "(u32*)";
+    else if (size === 8) displayType = "(u64*)";
+    else if (size) displayType = `(ptr${size * 8})`;
+    else displayType = "(ptr)";
+  } else {
+    switch (size) {
+      case 1:
+        displayType =
+          typeName.startsWith("i") ||
+          typeName.startsWith("s") ||
+          (typeName.includes("char") && !typeName.includes("unsigned"))
+            ? "(i8)"
+            : "(u8)";
+        break;
+      case 2:
+        displayType =
+          typeName.startsWith("i") || typeName.startsWith("s")
+            ? "(i16)"
+            : "(u16)";
+        break;
+      case 4:
+        displayType =
+          typeName.startsWith("i") || typeName.startsWith("s")
+            ? "(i32)"
+            : "(u32)";
+        break;
+      case 8:
+        displayType =
+          typeName.startsWith("i") || typeName.startsWith("s")
+            ? "(i64)"
+            : "(u64)";
+        break;
+      default:
+        if (
+          typeName &&
+          typeName !== "unknown" &&
+          typeName !== "void" &&
+          typeName.length > 0
+        ) {
+          displayType = `(${typeName}${size ? `_s${size}` : ""})`;
+        } else if (size) {
+          displayType = `(unk${size * 8})`;
+        } else {
+          displayType = "(?)";
+        }
+    }
+  }
+  symbol._displayType = displayType;
+  return symbol;
+}
+
+/**
+ * Emits an event indicating the symbol slots have been updated.
+ * @private
+ */
+function emitSlotsUpdatedEvent() {
+  eventBus.emit("ui:symbolSlotsUpdated", {
+    slots: [...selectedSymbolsInSlots],
+  });
+  // console.log("UI: Emitted 'ui:symbolSlotsUpdated' with current slots:", selectedSymbolsInSlots.map(s => `${s._displayType || ''}${s.name}`));
+}
+
+/**
+ * Renders the symbol slots dynamically.
+ */
+export function renderSymbolSlots() {
+  if (!domElements.symbolSlotsContainer) {
+    // Try to query elements if not already done, useful for initial calls or race conditions
+    if (
+      typeof queryElements === "function" &&
+      Object.keys(domElements).length < 5
+    ) {
+      // Arbitrary check if domElements is minimal
+      queryElements();
+    }
+    if (!domElements.symbolSlotsContainer) {
+      console.error(
+        "UI Error: Symbol slots container (#symbolSlotsContainer) not found for rendering."
+      );
+      return;
+    }
+  }
+
+  const container = domElements.symbolSlotsContainer;
+  container.innerHTML = ""; // Clear existing content
+  container.classList.remove("border", "p-2", "bg-gray-50"); // Remove container styling if empty
+
+  if (selectedSymbolsInSlots.length === 0) {
+    const placeholderDiv = document.createElement("div");
+    placeholderDiv.className = "text-gray-400 italic p-2 text-center text-xs";
+    placeholderDiv.textContent = "No symbols selected.";
+    container.appendChild(placeholderDiv);
+    return;
+  }
+
+  selectedSymbolsInSlots.forEach((symbol, index) => {
+    if (!symbol) return;
+
+    const slotDiv = document.createElement("div");
+    slotDiv.className =
+      "p-1.5 bg-white border rounded flex justify-between items-center text-sm group";
+
+    const handleSpan = document.createElement("span");
+    handleSpan.className =
+      "drag-handle cursor-move px-1 text-gray-400 hover:text-gray-600";
+    const dragIcon = document.createElement("i");
+    dragIcon.setAttribute("data-lucide", "grip-vertical");
+    dragIcon.style.width = "14px";
+    dragIcon.style.height = "14px";
+    handleSpan.appendChild(dragIcon);
+    slotDiv.appendChild(handleSpan);
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "flex-grow px-0";
+    const displayTypePrefix = symbol._displayType
+      ? `${symbol._displayType} `
+      : "";
+    nameSpan.textContent = `${displayTypePrefix}${
+      symbol.name || "Unnamed Symbol"
+    }`;
+    let titleText = `Name: ${symbol.name}\nType: ${
+      symbol.type_name || "N/A"
+    }\nAddress: 0x${(symbol.address || 0).toString(16)}\nSize: ${
+      symbol.size || "N/A"
+    }`;
+    if (symbol.file_name && symbol.line_number) {
+      titleText += `\nSource: ${symbol.file_name}:${symbol.line_number}`;
+    }
+    nameSpan.title = titleText;
+    slotDiv.appendChild(nameSpan);
+
+    const controlsDiv = document.createElement("div");
+    controlsDiv.className = "flex items-center";
+    const deleteButton = document.createElement("button");
+    deleteButton.title = "Delete Symbol";
+    deleteButton.className =
+      "slot-action-btn delete-btn text-red-500 hover:text-red-700";
+    deleteButton.dataset.action = "delete";
+    deleteButton.dataset.slotIndex = index; // Store current index for the handler
+    const deleteIcon = document.createElement("i");
+    deleteIcon.setAttribute("data-lucide", "trash-2");
+    deleteIcon.style.width = "14px";
+    deleteIcon.style.height = "14px";
+    deleteButton.appendChild(deleteIcon);
+    controlsDiv.appendChild(deleteButton);
+    slotDiv.appendChild(controlsDiv);
+
+    container.appendChild(slotDiv);
+  });
+
+  if (typeof lucide !== "undefined" && lucide.createIcons) {
+    lucide.createIcons({ context: container }); // Optimize by providing context
+  }
+}
+
+/**
+ * (Internal) Removes a symbol from the slot list by its index and re-renders.
+ * @param {number} indexToRemove - The index of the symbol to remove.
+ * @private
+ */
+function removeSymbolFromSlotInternal(indexToRemove) {
+  if (indexToRemove >= 0 && indexToRemove < selectedSymbolsInSlots.length) {
+    const removedSymbol = selectedSymbolsInSlots.splice(indexToRemove, 1)[0];
+    renderSymbolSlots();
+    emitSlotsUpdatedEvent();
+    // console.log(`UI: Symbol "${removedSymbol.name}" removed from slot ${indexToRemove}.`);
+  } else {
+    console.warn(
+      "UI: Attempted to remove symbol from invalid index:",
+      indexToRemove
+    );
+  }
+}
+
+/**
+ * Initializes the symbol slots UI, including SortableJS and action listeners.
+ */
+export function initSymbolSlots() {
+  if (
+    typeof queryElements === "function" &&
+    Object.keys(domElements).length < 5
+  )
+    queryElements();
+
+  if (!domElements.symbolSlotsContainer) {
+    console.error(
+      "UI Error: Symbol slots container (#symbolSlotsContainer) not found for initialization."
+    );
+    return;
+  }
+  selectedSymbolsInSlots = [];
+  renderSymbolSlots(); // Initial render (will show placeholder)
+
+  if (typeof Sortable !== "undefined") {
+    if (sortableInstance) {
+      sortableInstance.destroy();
+    }
+    sortableInstance = Sortable.create(domElements.symbolSlotsContainer, {
+      animation: 150,
+      handle: ".drag-handle",
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      onEnd: function (evt) {
+        if (
+          evt.oldDraggableIndex !== undefined &&
+          evt.newDraggableIndex !== undefined &&
+          selectedSymbolsInSlots.length >
+            Math.max(evt.oldDraggableIndex, evt.newDraggableIndex)
+        ) {
+          const movedItem = selectedSymbolsInSlots.splice(
+            evt.oldDraggableIndex,
+            1
+          )[0];
+          selectedSymbolsInSlots.splice(evt.newDraggableIndex, 0, movedItem);
+          renderSymbolSlots(); // Re-render to update data-slot-index attributes correctly
+          emitSlotsUpdatedEvent();
+        }
+      },
+    });
+  } else {
+    console.error(
+      "UI Error: SortableJS library not loaded. Drag-and-drop for symbol slots will not work."
+    );
+  }
+
+  // Setup event delegation for slot actions (like delete)
+  domElements.symbolSlotsContainer.addEventListener("click", (event) => {
+    const targetButton = event.target.closest(
+      'button.delete-btn[data-action="delete"]'
+    );
+    if (targetButton) {
+      const slotIndex = parseInt(targetButton.dataset.slotIndex, 10);
+      if (!isNaN(slotIndex)) {
+        removeSymbolFromSlotInternal(slotIndex); // Call internal remove function directly
+      } else {
+        console.warn(
+          "UI: Invalid slot index for delete action from button:",
+          targetButton
+        );
+      }
+    }
+  });
+}
+
+/**
+ * (Public) Adds a symbol (already processed with _displayType) to the slot list.
+ * Called by main.js.
+ * @param {object} symbolWithDisplayType - The full symbol object with _displayType property.
+ * @returns {boolean} True if added successfully, false otherwise.
+ */
+export function addSymbolToSlot(symbolWithDisplayType) {
+  if (
+    !symbolWithDisplayType ||
+    !symbolWithDisplayType.name ||
+    !symbolWithDisplayType._displayType
+  ) {
+    // Check for _displayType
+    console.warn(
+      "UI: Attempted to add invalid or non-formatted symbol object."
+    );
+    return false;
+  }
+  if (selectedSymbolsInSlots.length >= MAX_SLOTS) {
+    eventBus.emit("main:statusUpdate", {
+      message: "Error: Slots are full (Max 10 symbols).",
+      isError: true,
+    });
+    return false;
+  }
+  const isDuplicate = selectedSymbolsInSlots.some(
+    (s) =>
+      s.address === symbolWithDisplayType.address &&
+      s.name === symbolWithDisplayType.name
+  );
+  if (isDuplicate) {
+    eventBus.emit("main:statusUpdate", {
+      message: `Info: Symbol "${symbolWithDisplayType.name}" is already in slots.`,
+      isError: false,
+    });
+    return false;
+  }
+
+  selectedSymbolsInSlots.push(symbolWithDisplayType);
+  renderSymbolSlots();
+  emitSlotsUpdatedEvent();
+  return true;
+}
+
+/**
+ * (Public) Clears all symbols from the slots and re-renders.
+ */
+export function clearSymbolSlots() {
+  const hadSymbols = selectedSymbolsInSlots.length > 0;
+  selectedSymbolsInSlots = [];
+  renderSymbolSlots();
+  if (hadSymbols) {
+    emitSlotsUpdatedEvent();
+  }
+  // console.log("UI: All symbol slots cleared.");
+}
+
+/**
+ * (Public) Returns a copy of the currently selected symbols in slots.
+ * @returns {Array<object>}
+ */
+export function getSelectedSymbolsInSlots() {
+  return [...selectedSymbolsInSlots];
+}
+
+/**
+ * (Public) Updates the entire list of selected symbols and re-renders the slots.
+ * Expects symbols to already have _displayType.
+ * @param {Array<object>} newSymbolsArray - The new array of symbol objects (with _displayType) for the slots.
+ */
+export function updateSlotsWithNewSymbols(newSymbolsArray) {
+  if (!Array.isArray(newSymbolsArray)) {
+    console.error("UI: updateSlotsWithNewSymbols expects an array.");
+    return;
+  }
+  selectedSymbolsInSlots = newSymbolsArray.slice(0, MAX_SLOTS);
+  renderSymbolSlots();
+  emitSlotsUpdatedEvent();
+}
+
 // --- Public API / UI Update Functions ---
 
 /** Initializes the UI Manager */
@@ -265,10 +777,12 @@ async function initUIManager() {
       sortDatalistOptions(domElements.commonBaudRatesDatalist);
     } // Sort initial list
     const initialState = getCurrentConfigFromUI(); // Read initial DOM state
+    initSymbolSlots();
+    setupControlPanelListeners();
+    setupAresplotListeners();
+    setupModuleFullscreenButtons();
     updateControlVisibility(initialState.dataSource);
     updateParserVisibility(initialState.protocol);
-    setupControlPanelListeners();
-    setupModuleFullscreenButtons();
     if (typeof lucide !== "undefined" && lucide.createIcons) {
       try {
         lucide.createIcons();
@@ -437,32 +951,59 @@ function updateControlVisibility(currentDataSource) {
     domElements.parsingSettingsSection.style.display = showParsing
       ? "block"
       : "none";
+  if (domElements.aresplotControlsSection)
+    domElements.aresplotControlsSection.style.display = showParsing
+      ? "block"
+      : "none";
   if (showParsing) updateParserVisibility();
 }
 
 /** Updates visibility of the custom parser section based on selected protocol. */
 function updateParserVisibility(protocol = null) {
+  if (!domElements.serialProtocolSelect) queryElements();
   const selectedProtocol = protocol ?? domElements.serialProtocolSelect?.value;
   const isCustom = selectedProtocol === "custom";
-  if (domElements.customParserSection)
-    domElements.customParserSection.style.display = isCustom ? "block" : "none";
+  const isAresplot = selectedProtocol === "aresplot"; // Check for aresplot
+
+  // Handle Custom Parser Section
+  if (domElements.customParserSection) {
+    // Show custom section only if 'custom' is selected AND NOT 'aresplot'
+    domElements.customParserSection.style.display =
+      isCustom && !isAresplot ? "block" : "none";
+  }
+
+  // Handle Built-in Parser Status
   if (domElements.builtInParserStatus) {
-    domElements.builtInParserStatus.style.display = isCustom ? "none" : "block";
-    if (!isCustom) {
-      const txt =
+    // Show built-in status if NEITHER 'custom' NOR 'aresplot' is selected
+    const showBuiltIn = !isCustom && !isAresplot;
+    domElements.builtInParserStatus.style.display = showBuiltIn
+      ? "block"
+      : "none";
+    if (showBuiltIn) {
+      // Update text for the selected built-in protocol
+      const selectedOption =
         domElements.serialProtocolSelect?.options[
           domElements.serialProtocolSelect.selectedIndex
-        ]?.text || "默认";
+        ];
+      const txt = selectedOption ? selectedOption.text : "默认";
       domElements.builtInParserStatus.textContent = `状态：使用内置协议 "${txt}"。`;
-      domElements.builtInParserStatus.className = "parser-status";
+      domElements.builtInParserStatus.className = "parser-status"; // Reset class
     }
   }
+
+  // Handle Custom Parser Status Text (visible only when custom is selected)
   if (domElements.parserStatus) {
     domElements.parserStatus.style.display = isCustom ? "block" : "none";
     if (isCustom && !domElements.parserStatus.textContent.includes(":")) {
+      // Reset status text if switching back to custom
       domElements.parserStatus.textContent = "状态：使用自定义解析器。";
-      domElements.parserStatus.className = "parser-status";
+      domElements.parserStatus.className = "parser-status"; // Reset class
     }
+  }
+  if (domElements.aresplotControlsSection) {
+    domElements.aresplotControlsSection.style.display = isAresplot
+      ? "block"
+      : "none";
   }
 }
 
@@ -575,6 +1116,76 @@ function setupModuleFullscreenButtons() {
   console.log(
     "Delegated listener for fullscreen buttons setup on #displayArea."
   );
+}
+
+/**
+ * Sets the enabled/disabled state of the Add Symbol button.
+ * @param {boolean} isEnabled - True to enable the button, false to disable.
+ */
+export function setAddSymbolButtonEnabled(isEnabled) {
+  // Ensure elements are available
+  if (!domElements.addSymbolButton) {
+    // Attempt to query again if elements might not be ready initially
+    queryElements();
+    if (!domElements.addSymbolButton) {
+      console.error(
+        "UI: Cannot set Add Symbol Button state, element not found."
+      );
+      return;
+    }
+  }
+  domElements.addSymbolButton.disabled = !isEnabled;
+}
+
+/**
+ * Creates the value string for a datalist option based on the symbol and potential duplicates.
+ * @param {object} symbol - The symbol object (may have needsDisambiguation flag).
+ * @returns {string} The string to be used as the option's value.
+ */
+export function formatSymbolForDatalistValue(symbol) {
+  if (symbol.needsDisambiguation && symbol.file_name && symbol.line_number) {
+    // Extract basename from file_name for brevity if needed
+    const filename = symbol.file_name.includes("/")
+      ? symbol.file_name.substring(symbol.file_name.lastIndexOf("/") + 1)
+      : symbol.file_name;
+    return `${symbol.name} (${filename}:${symbol.line_number})`;
+  } else {
+    // If no disambiguation needed or possible, just return the name
+    return symbol.name;
+  }
+}
+
+/**
+ * Populates the symbol datalist with options based on search results.
+ * Option values include disambiguation info if needed.
+ * @param {Array<object>} symbols - Array of symbol objects from the search.
+ */
+export function updateSymbolDatalist(symbols) {
+  if (!domElements.symbolDatalist) return;
+  const datalist = domElements.symbolDatalist;
+  datalist.innerHTML = ""; // Clear previous options
+
+  if (!symbols || symbols.length === 0) {
+    return;
+  }
+
+  // Keep track of values added to prevent exact duplicate options in datalist
+  const addedValues = new Set();
+
+  symbols.forEach((symbol) => {
+    const optionValue = formatSymbolForDatalistValue(symbol);
+    // Prevent adding the exact same string value twice to the datalist
+    if (!addedValues.has(optionValue)) {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      // Store the original name and address (if needed for lookup later)
+      // It's often simpler to just parse the value back during 'add' action
+      // option.dataset.rawName = symbol.name;
+      // option.dataset.address = symbol.address;
+      datalist.appendChild(option);
+      addedValues.add(optionValue);
+    }
+  });
 }
 
 /**
@@ -732,5 +1343,5 @@ export {
   updateParserVisibility,
   initializeSplitLayout,
   setupResizeObserver,
-  getCurrentConfigFromUI, // Export the config getter
+  getCurrentConfigFromUI,
 };

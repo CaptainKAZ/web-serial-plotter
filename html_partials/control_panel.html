@@ -1,108 +1,212 @@
 <div class="control-section">
-    <h3>数据采集与导出</h3>
-    <label for="dataSourceSelect">数据源:</label>
-    <select id="dataSourceSelect" class="mb-2">
-        <option value="simulated">模拟数据（性能测试）</option>
-        <option value="webserial" selected>WebSerial</option>
-        <option value="websocket" disabled>WebSocket（暂未支持）</option>
-    </select>
-    <p id="statusMessage" class="text-xs text-gray-500 mb-2">状态：空闲</p>
-    <p id="workerStatusDisplay"></p>
-    <div>
-        <label for="bufferDurationInput">最大缓冲点数:</label>
-        <input type="number" id="bufferDurationInput" value="120000" min="1000" max="6000000" class="mb-2">
-    </div>
-    <label>缓冲使用情况:</label>
-    <div class="progress-bar-container mb-2">
-        <div id="bufferUsageBar" class="progress-bar"></div>
-    </div>
-    <p id="bufferStatus" class="text-xs text-gray-500 mb-2">缓冲: 0 / 120000 点</p>
-    <button id="startStopButton" class="w-full mt-2">开始采集</button>
-    
-    <div class="flex gap-x-1 mt-0.8 mb-0 mt-0">
-        <button id="downloadCsvButton" class="w-1/2">下载 CSV</button>
-        <button id="clearDataButton" class="w-1/2 bg-red-500 hover:bg-red-600">清空数据</button>
-    </div>
+  <h3>数据采集与导出</h3>
+  <label for="dataSourceSelect">数据源:</label>
+  <select id="dataSourceSelect" class="mb-2">
+    <option value="simulated">模拟数据（性能测试）</option>
+    <option value="webserial" selected>WebSerial</option>
+    <option value="websocket" disabled>WebSocket（暂未支持）</option>
+  </select>
+  <p id="statusMessage" class="text-xs text-gray-500 mb-2">状态：空闲</p>
+  <p id="workerStatusDisplay"></p>
+  <div>
+    <label for="bufferDurationInput">最大缓冲点数:</label>
+    <input
+      type="number"
+      id="bufferDurationInput"
+      value="120000"
+      min="1000"
+      max="6000000"
+      class="mb-2"
+    />
+  </div>
+  <label>缓冲使用情况:</label>
+  <div class="progress-bar-container mb-2">
+    <div id="bufferUsageBar" class="progress-bar"></div>
+  </div>
+  <p id="bufferStatus" class="text-xs text-gray-500 mb-2">
+    缓冲: 0 / 120000 点
+  </p>
+  <button id="startStopButton" class="w-full mt-2">开始采集</button>
 
+  <div class="flex gap-x-1 mt-0.8 mb-0 mt-0">
+    <button id="downloadCsvButton" class="w-1/2">下载 CSV</button>
+    <button id="clearDataButton" class="w-1/2 bg-red-500 hover:bg-red-600">
+      清空数据
+    </button>
+  </div>
 </div>
 
-<div id="parsingSettingsSection" class="control-section" style="display: none;">
-    <h3>解析设置</h3>
-    <label for="serialProtocolSelect">解析协议:</label>
-    <select id="serialProtocolSelect" class="mb-2">
-        <option value="default">Arduino (逗号/空格分隔)</option>
-        <option value="justfloat">JustFloat (N*float + 帧尾)</option>
-        <option value="firewater">FireWater (文本 + 换行)</option>
-        <option value="custom">自定义</option>
-    </select>
+<div id="parsingSettingsSection" class="control-section" style="display: none">
+  <h3>解析设置</h3>
+  <label for="serialProtocolSelect">解析协议:</label>
+  <select id="serialProtocolSelect" class="mb-2">
+    <option value="default">Arduino (逗号/空格分隔)</option>
+    <option value="justfloat">JustFloat (N*float + 帧尾)</option>
+    <option value="firewater">FireWater (文本 + 换行)</option>
+    <option value="aresplot">AresPlot (监控任意全局变量)</option>
+    <option value="custom">自定义</option>
+  </select>
 
-    <div id="customParserSection" style="display: none;"> <label for="serialParser">自定义解析器 (JS 函数体):</label>
-        <textarea id="serialParser" rows="6"
-            placeholder="输入 parseSerialData(uint8ArrayData) 函数体... // 返回 { values: number[], frameByteLength: number } 或 { values: null, frameByteLength: 0 }"></textarea>
-        <button id="updateParserButton" class="mt-2 text-sm py-1 px-2">更新解析器</button>
-        <p id="parserStatus" class="parser-status">状态：使用自定义解析器。</p>
-        <p class="text-xs text-red-600 mt-1">注意：执行自定义代码可能存在安全风险。</p>
-    </div>
-    <p id="builtInParserStatus" class="parser-status" style="display: block;">状态：使用内置解析器。</p>
-</div>
-<div id="simulatedControls" class="control-section" style="display: none;">
-    <h3>模拟设置</h3>
-    <div>
-        <label for="simNumChannels">通道数量:</label>
-        <input type="number" id="simNumChannels" value="4" min="1" max="16" class="mb-2">
-    </div>
-    <div>
-        <label for="simFrequency">频率 (Hz):</label>
-        <input type="number" id="simFrequency" value="1000" min="1" max="2000" class="mb-2">
-    </div>
-    <div>
-        <label for="simAmplitude">幅值:</label>
-        <input type="number" id="simAmplitude" value="1" min="0.1" step="0.1" class="mb-2">
-    </div>
+  <div id="customParserSection" style="display: none">
+    <label for="serialParser">自定义解析器 (JS 函数体):</label>
+    <textarea
+      id="serialParser"
+      rows="6"
+      placeholder="输入 parseSerialData(uint8ArrayData) 函数体... // 返回 { values: number[], frameByteLength: number } 或 { values: null, frameByteLength: 0 }"
+    ></textarea>
+    <button id="updateParserButton" class="mt-2 text-sm py-1 px-2">
+      更新解析器
+    </button>
+    <p id="parserStatus" class="parser-status">状态：使用自定义解析器。</p>
+    <p class="text-xs text-red-600 mt-1">
+      注意：执行自定义代码可能存在安全风险。
+    </p>
+  </div>
+  <p id="builtInParserStatus" class="parser-status" style="display: block">
+    状态：使用内置解析器。
+  </p>
 </div>
 
-<div id="webSerialControls" class="control-section" style="display: none;">
-    <h3>WebSerial 连接设置</h3>
-    <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
-    <button id="connectSerialButton" class="w-full mb-2">连接串口</button>
-    <div id="serialOptions" class="mt-2"> <label for="baudRateInputFinal">波特率:</label>
-        <div class="flex gap-2">
-            <input type="number" id="baudRateInput" class="mb-2 flex-1" list="commonBaudRates" value="115200" min="300"
-                max="4000000" step="1" placeholder="输入或选择波特率">
-            <datalist id="commonBaudRates">
-                <option value="9600"></option>
-                <option value="19200"></option>
-                <option value="38400"></option>
-                <option value="57600"></option>
-                <option value="115200"></option>
-                <option value="250000"></option>
-                <option value="230400"></option>
-                <option value="460800"></option>
-                <option value="921600"></option>
-                <option value="2500000"></option>
-            </datalist>
-        </div>
+<div id="aresplotControlsSection" class="control-section" style="display: none">
+  <h3>AresPlot 配置</h3>
+  <div class="mb-2">
+    <div
+      id="elfDropZone"
+      class="mt-1 border-2 border-dashed border-gray-300 rounded-md p-2.5 text-center cursor-pointer hover:border-blue-500 transition-colors duration-200 ease-in-out"
+    >
+      <input type="file" id="elfFileInput" accept=".elf" class="hidden" />
+      <div class="flex flex-col items-center">
+        <p class="text-sm text-gray-600">
+          <span class="font-medium text-blue-600 hover:text-blue-800" id="elfName"
+            >点击或拖放打开ELF</span
+          >
+        </p>
+      </div>
     </div>
-    <label for="dataBitsSelect">数据位:</label>
-    <select id="dataBitsSelect" class="mb-2">
-        <option value="8" selected>8</option>
-        <option value="7">7</option>
-    </select>
-    <label for="stopBitsSelect">停止位:</label>
-    <select id="stopBitsSelect" class="mb-2">
-        <option value="1" selected>1</option>
-        <option value="2">2</option>
-    </select>
-    <label for="paritySelect">校验位:</label>
-    <select id="paritySelect" class="mb-2">
-        <option value="none" selected>无</option>
-        <option value="even">偶校验</option>
-        <option value="odd">奇校验</option>
-    </select>
-    <label for="flowControlSelect">流控制:</label>
-    <select id="flowControlSelect" class="mb-2">
-        <option value="none" selected>无</option>
-        <option value="hardware">硬件</option>
-    </select>
+    <p id="elfStatusMessage" class="text-xs text-gray-500 mt-1">
+      Status: Waiting for ELF file.
+    </p>
+  </div>
+
+  <div id="symbolSearchArea" class="mb-2">
+    <div class="flex items-center gap-1.5">
+      <input
+        type="text"
+        id="symbolSearchInput"
+        placeholder="查找符号名"
+        list="symbolDatalist"
+        class="mb-2 flex-1"
+      />
+      <datalist id="symbolDatalist"> </datalist>
+      <button
+        id="addSymbolButton"
+        class="bg-blue-500 hover:bg-blue-600 text-white rounded disabled:opacity-50"
+        disabled
+        title="Add selected symbol to slots"
+      >
+        +
+      </button>
+    </div>
+  </div>
+
+  <div>
+    <label>监控列表:</label>
+    <div
+      id="symbolSlotsContainer"
+    >
+      <span class="text-gray-400 italic">Slots for selected symbols.</span>
+    </div>
+  </div>
 </div>
+
+<div id="simulatedControls" class="control-section" style="display: none">
+  <h3>模拟设置</h3>
+  <div>
+    <label for="simNumChannels">通道数量:</label>
+    <input
+      type="number"
+      id="simNumChannels"
+      value="4"
+      min="1"
+      max="16"
+      class="mb-2"
+    />
+  </div>
+  <div>
+    <label for="simFrequency">频率 (Hz):</label>
+    <input
+      type="number"
+      id="simFrequency"
+      value="1000"
+      min="1"
+      max="2000"
+      class="mb-2"
+    />
+  </div>
+  <div>
+    <label for="simAmplitude">幅值:</label>
+    <input
+      type="number"
+      id="simAmplitude"
+      value="1"
+      min="0.1"
+      step="0.1"
+      class="mb-2"
+    />
+  </div>
+</div>
+
+<div id="webSerialControls" class="control-section" style="display: none">
+  <h3>WebSerial 连接设置</h3>
+  <p class="text-xs text-gray-500 mb-2">连接后，“开始采集”按钮将读取数据。</p>
+  <button id="connectSerialButton" class="w-full mb-2">连接串口</button>
+  <div id="serialOptions" class="mt-2">
+    <label for="baudRateInputFinal">波特率:</label>
+    <div class="flex gap-2">
+      <input
+        type="number"
+        id="baudRateInput"
+        class="mb-2 flex-1"
+        list="commonBaudRates"
+        value="115200"
+        min="300"
+        max="4000000"
+        step="1"
+        placeholder="输入或选择波特率"
+      />
+      <datalist id="commonBaudRates">
+        <option value="9600"></option>
+        <option value="19200"></option>
+        <option value="38400"></option>
+        <option value="57600"></option>
+        <option value="115200"></option>
+        <option value="250000"></option>
+        <option value="230400"></option>
+        <option value="460800"></option>
+        <option value="921600"></option>
+        <option value="2500000"></option>
+      </datalist>
+    </div>
+  </div>
+  <label for="dataBitsSelect">数据位:</label>
+  <select id="dataBitsSelect" class="mb-2">
+    <option value="8" selected>8</option>
+    <option value="7">7</option>
+  </select>
+  <label for="stopBitsSelect">停止位:</label>
+  <select id="stopBitsSelect" class="mb-2">
+    <option value="1" selected>1</option>
+    <option value="2">2</option>
+  </select>
+  <label for="paritySelect">校验位:</label>
+  <select id="paritySelect" class="mb-2">
+    <option value="none" selected>无</option>
+    <option value="even">偶校验</option>
+    <option value="odd">奇校验</option>
+  </select>
+  <label for="flowControlSelect">流控制:</label>
+  <select id="flowControlSelect" class="mb-2">
+    <option value="none" selected>无</option>
+    <option value="hardware">硬件</option>
+  </select>
 </div>

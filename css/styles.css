@@ -605,6 +605,109 @@ body {
     color: #374151;
 }
 
+#aresplotControlsSection h3 {
+    /* Inherits existing h3 styles, fine for now */
+    margin-bottom: 0.75rem; /* Ensure consistent bottom margin */
+}
+
+#symbolSlotsContainer {
+    /* Styles mostly handled by Tailwind in HTML, but ensure min-height */
+    min-height: 1rem; /* ~128px, adjust as needed */
+    /* Tailwind classes bg-gray-50, border, p-2 are already applied */
+}
+
+/* Placeholder style for slots (real style applied when slots are rendered) */
+#symbolSlotsContainer > span.text-gray-400 {
+    display: block;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+#symbolSearchArea button {
+    padding: .25rem .75rem;
+    border-radius: .25rem;
+}
+
+#symbolSearchArea input {
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+    width: 100%;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+    padding-left: 0.5rem;
+}
+
+#symbolSlotsContainer button {
+    padding: .25rem;
+    width: 100%;
+    font-size: 1rem;
+    margin-bottom: 0rem;
+    color: #9ca3af;
+    background-color: transparent;
+}
+
+#symbolSlotsContainer button:hover {
+    background-color: red;
+    color: #dbeafe;
+}
+/* Style for action buttons inside slots (will be applied later) */
+.slot-action-btn {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.75rem; /* Smaller font */
+    line-height: 1;
+    border: 1px solid #d1d5db;
+    background-color: #f9fafb;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    margin-left: 0.25rem;
+}
+.slot-action-btn:hover:not(:disabled) {
+    background-color: #e5e7eb;
+}
+.slot-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Styles for Drag and Drop Zone */
+#elfDropZone {
+    transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+/* Style applied when a file is dragged over the drop zone */
+#elfDropZone.drag-over {
+    border-color: #2563eb; /* Tailwind blue-600 */
+    background-color: #eff6ff; /* Tailwind blue-50 */
+}
+
+#elfDropZone p {
+    pointer-events: none; /* Prevent text/icon from interfering with drop */
+}
+
+.drag-handle {
+    cursor: grab; /* Indicates draggable */
+}
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* SortableJS ghost/chosen classes for visual feedback */
+.sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb; /* Light blue placeholder */
+}
+.sortable-chosen {
+    /* Styles for the item being actively dragged, if needed */
+    /* e.g., box-shadow: 0 0 5px rgba(0,0,0,0.2); */
+}
+
+/* Ensure slot items are block or flex to allow SortableJS to work correctly */
+#symbolSlotsContainer > div {
+    /* display: block; or display: flex; (already flex from Tailwind) */
+    /* Ensure no strange margins collapse issues with SortableJS */
+}
+
 /* Progress Bar */
 .progress-bar-container {
     width: 100%;
