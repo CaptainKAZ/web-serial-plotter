@@ -734,6 +734,7 @@ async function sendAresplotStartMonitorCommand() {
     console.log(
       `Main: Sending CMD_START_MONITOR with ${numVars} variable(s) for Aresplot.`
     );
+    console.log("Main: Sending Aresplot CMD_START_MONITOR frame:", frame);
     await serialService.write(frame); // Assumes serialService.write accepts Uint8Array
     if (document.getElementById("elfStatusMessage")) {
       // Update specific status if element exists

@@ -895,6 +895,20 @@ function updateBufferUI(stats = {}) {
   domElements.bufferStatus.innerHTML = statusText;
 }
 
+/**
+ * Updates the text content of a DOM element.
+ * @param {string} elementId - The ID of the element.
+ * @param {string} text - The text to set.
+ */
+export function updateElementText(elementId, text) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = text;
+    } else {
+        console.warn(`UI: Element with ID '${elementId}' not found for text update.`);
+    }
+}
+
 /** Displays status messages from the worker. */
 function showWorkerStatus(text, isError = false) {
   if (!domElements.workerStatusDisplay) return;
