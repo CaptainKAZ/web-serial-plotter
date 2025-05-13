@@ -241,48 +241,6 @@ export function downloadCSV(chartSeriesRef = null) {
     });
 }
 
-// --- UI Update Helpers (Called by main.js) ---
-// These remain here as they directly visualize the state managed by this module.
-
-export function updateBufferStatusUI(
-  currentPoints,
-  maxPoints,
-  collecting,
-  estimateRemainingSec,
-  estimateTotalSec
-) {
-  const bufferUsageBarEl = document.getElementById("bufferUsageBar");
-  const bufferStatusEl = document.getElementById("bufferStatus");
-  if (!bufferUsageBarEl || !bufferStatusEl) return;
-
-  const usagePercent =
-    maxPoints > 0 ? Math.min(100, (currentPoints / maxPoints) * 100) : 0;
-  bufferUsageBarEl.style.width = `${usagePercent.toFixed(1)}%`;
-
-  let statusText = `缓冲点数: ${currentPoints.toLocaleString()} / ${maxPoints.toLocaleString()}`;
-  if (collecting) {
-    if (
-      estimateRemainingSec !== null &&
-      estimateRemainingSec >= 0 &&
-      estimateTotalSec !== null &&
-      estimateTotalSec > 0
-    ) {
-      if (usagePercent >= 99.9 || estimateRemainingSec <= 0.1) {
-        statusText += ` <br /> 已满 (约 ${formatSecondsToHMS(
-          estimateTotalSec
-        )})`;
-      } else {
-        statusText += `<br /> 预计剩余: ${formatSecondsToHMS(
-          estimateRemainingSec
-        )} / ${formatSecondsToHMS(estimateTotalSec)}`;
-      }
-    } else {
-      statusText += `<br /> 预计剩余: 计算中...`;
-    }
-  }
-  bufferStatusEl.innerHTML = statusText; // Use innerHTML for <br>
-}
-
 // Note: updateParsedDataDisplay and updateDataRateDisplayUI are removed
 // as those responsibilities are now handled by main.js loop and plot_module respectively.
 

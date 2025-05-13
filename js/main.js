@@ -985,8 +985,6 @@ function handleSymbolSelectedForAdd(event) {
     const symbolToAdd = augmentSymbolWithTypeData({ ...foundSymbol }); // Create a copy and add display type
     const added = uiManager.addSymbolToSlot(symbolToAdd);
     if (added) {
-      const searchInput = document.getElementById("symbolSearchInput");
-      if (searchInput) searchInput.value = "";
       uiManager.updateSymbolDatalist([]);
       uiManager.setAddSymbolButtonEnabled(false);
       eventBus.emit("main:statusUpdate", {

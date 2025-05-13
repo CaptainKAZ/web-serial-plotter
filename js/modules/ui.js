@@ -375,6 +375,7 @@ function setupAresplotListeners() {
     addButton.addEventListener("click", () => {
       const selectedValue = searchInput.value;
       if (selectedValue.trim() !== "") {
+        searchInput.select();
         eventBus.emit("ui:symbolSelectedForAdd", { value: selectedValue });
       }
     });
@@ -384,6 +385,7 @@ function setupAresplotListeners() {
       if (event.key === "Enter") {
         event.preventDefault();
         const selectedValue = searchInput.value;
+        searchInput.select();
         // Trigger ADD directly on Enter if button would be enabled
         // We can perhaps trigger validation first, then add if valid?
         // Simpler: just trigger the add action, it will validate internally.
@@ -407,79 +409,6 @@ function setupAresplotListeners() {
 const MAX_SLOTS = 10;
 let selectedSymbolsInSlots = []; // Array to hold the symbol objects in the slots
 let sortableInstance = null;
-
-/**
- * Infers a display type string (e.g., "(u32)", "(f32)") based on symbol's type_name and size.
- * Augments the symbol object with a `_displayType` property.
- * @param {object} symbol - The symbol object from ELF analysis.
- * @returns {object} The symbol object augmented with a `_displayType` property.
- */
-export function formatAndStoreDisplayType(symbol) {
-  // Export if main.js needs it directly
-  if (!symbol) return symbol; // Should not happen
-  let displayType = "";
-  const typeName = symbol.type_name ? symbol.type_name.toLowerCase() : "";
-  const size = symbol.size; // in bytes
-
-  if (typeName.includes("float") || typeName.includes("f32")) {
-    displayType = "(f32)";
-  } else if (typeName.includes("double") || typeName.includes("f64")) {
-    displayType = "(f64)";
-  } else if (
-    typeName.includes("*") ||
-    typeName === "pointer" ||
-    typeName === "ptr"
-  ) {
-    if (size === 4) displayType = "(u32*)";
-    else if (size === 8) displayType = "(u64*)";
-    else if (size) displayType = `(ptr${size * 8})`;
-    else displayType = "(ptr)";
-  } else {
-    switch (size) {
-      case 1:
-        displayType =
-          typeName.startsWith("i") ||
-          typeName.startsWith("s") ||
-          (typeName.includes("char") && !typeName.includes("unsigned"))
-            ? "(i8)"
-            : "(u8)";
-        break;
-      case 2:
-        displayType =
-          typeName.startsWith("i") || typeName.startsWith("s")
-            ? "(i16)"
-            : "(u16)";
-        break;
-      case 4:
-        displayType =
-          typeName.startsWith("i") || typeName.startsWith("s")
-            ? "(i32)"
-            : "(u32)";
-        break;
-      case 8:
-        displayType =
-          typeName.startsWith("i") || typeName.startsWith("s")
-            ? "(i64)"
-            : "(u64)";
-        break;
-      default:
-        if (
-          typeName &&
-          typeName !== "unknown" &&
-          typeName !== "void" &&
-          typeName.length > 0
-        ) {
-          displayType = `(${typeName}${size ? `_s${size}` : ""})`;
-        } else if (size) {
-          displayType = `(unk${size * 8})`;
-        } else {
-          displayType = "(?)";
-        }
-    }
-  }
-  symbol._displayType = displayType;
-  return symbol;
-}
 
 /**
  * Emits an event indicating the symbol slots have been updated.
@@ -592,7 +521,6 @@ export function renderSymbolSlots() {
  */
 function removeSymbolFromSlotInternal(indexToRemove) {
   if (indexToRemove >= 0 && indexToRemove < selectedSymbolsInSlots.length) {
-    const removedSymbol = selectedSymbolsInSlots.splice(indexToRemove, 1)[0];
     renderSymbolSlots();
     emitSlotsUpdatedEvent();
     // console.log(`UI: Symbol "${removedSymbol.name}" removed from slot ${indexToRemove}.`);

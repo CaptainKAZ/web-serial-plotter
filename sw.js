@@ -1,7 +1,7 @@
 // sw.js
 
 // 定义缓存名称，通常包含版本号以便更新
-const CACHE_NAME = "web-serial-plotter-cache-v3.0"; // Increment version number
+const CACHE_NAME = "web-serial-plotter-cache-v3.1"; // Increment version number
 // 定义需要缓存的核心文件（应用外壳）和依赖项
 const urlsToCache = [
   "/", // 根路径通常也需要缓存
