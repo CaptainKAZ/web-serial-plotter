@@ -37,6 +37,9 @@ async function init() {
           console.error("Worker reported error:", payload);
           eventBus.emit("worker:error", new Error(typeof payload === 'string' ? payload : payload.message || "Unknown worker error"));
           break;
+        case "aresplot_ack":
+          eventBus.emit("worker:aresplotAck", payload);
+          break;
         default:
           console.log("WorkerService received unhandled message type from worker:", type, payload);
       }

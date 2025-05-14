@@ -406,9 +406,26 @@ function setupAresplotListeners() {
 }
 
 // --- Symbol Slot Management ---
-const MAX_SLOTS = 10;
-let selectedSymbolsInSlots = []; // Array to hold the symbol objects in the slots
+const DEFAULT_MAX_SLOTS = 10;
+let MAX_SLOTS = DEFAULT_MAX_SLOTS;
+let selectedSymbolsInSlots = [];
 let sortableInstance = null;
+
+export function setMaxSlots(count) {
+    if (typeof count === 'number' && count > 0) {
+        MAX_SLOTS = count;
+        console.log(`UI: MAX_SLOTS set to ${count} from MCU ACK.`);
+    }
+}
+
+export function resetMaxSlots() {
+    MAX_SLOTS = DEFAULT_MAX_SLOTS;
+    console.log(`UI: MAX_SLOTS reset to default (${DEFAULT_MAX_SLOTS}).`);
+}
+
+export function getMaxSlots() {
+    return MAX_SLOTS;
+}
 
 /**
  * Emits an event indicating the symbol slots have been updated.
@@ -521,6 +538,7 @@ export function renderSymbolSlots() {
  */
 function removeSymbolFromSlotInternal(indexToRemove) {
   if (indexToRemove >= 0 && indexToRemove < selectedSymbolsInSlots.length) {
+    const removedSymbol = selectedSymbolsInSlots.splice(indexToRemove, 1)[0];
     renderSymbolSlots();
     emitSlotsUpdatedEvent();
     // console.log(`UI: Symbol "${removedSymbol.name}" removed from slot ${indexToRemove}.`);
@@ -622,7 +640,7 @@ export function addSymbolToSlot(symbolWithDisplayType) {
   }
   if (selectedSymbolsInSlots.length >= MAX_SLOTS) {
     eventBus.emit("main:statusUpdate", {
-      message: "Error: Slots are full (Max 10 symbols).",
+      message: `Error: Slots are full (Max ${MAX_SLOTS} symbols).`,
       isError: true,
     });
     return false;

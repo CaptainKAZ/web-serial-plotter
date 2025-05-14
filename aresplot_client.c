@@ -216,6 +216,7 @@ static uint8_t g_tx_assembly_buffer[ARESPLOT_SHARED_BUFFER_SIZE];
 static volatile uint8_t g_ack_pending; // 是否有ACK等待发送 Flag indicating if an ACK is pending
 static uint8_t  g_ack_cmd_to_ack;      // 要ACK的命令ID
 static aresplot_ack_status_t g_ack_status_to_send; // 要发送的ACK状态
+static uint8_t  g_ack_max_monitor_vars; // (可选) 最大监控变量数，0表示不发送此字段
 
 #if ARESPLOT_ENABLE_ERROR_REPORT
 // 错误报告发送相关
@@ -295,13 +296,16 @@ static void assemble_and_send_frame_internal(uint8_t cmd, const uint8_t* payload
  * Flags an ACK response to be sent (actual sending happens in aresplot_service_tick).
  * @param ack_cmd_id 被ACK的命令ID The command ID being ACKed.
  * @param status ACK状态码 ACK status code.
+ * @param max_monitor_vars (可选) MCU支持的最大监控变量数，传入0表示不包含此字段。
+ *                         MCU应传入 ARESPLOT_MAX_VARS_TO_MONITOR 的值。
  */
-static void queue_ack_response(uint8_t ack_cmd_id, aresplot_ack_status_t status) {
+static void queue_ack_response(uint8_t ack_cmd_id, aresplot_ack_status_t status, uint8_t max_monitor_vars) {
     aresplot_user_critical_enter();
     // 如果有其他发送操作正在等待 (例如错误报告)，ACK可以优先，或者简单覆盖/排队
     // For simplicity, if another ACK is pending, this new one overwrites it.
     g_ack_cmd_to_ack = ack_cmd_id;
     g_ack_status_to_send = status;
+    g_ack_max_monitor_vars = max_monitor_vars;
     g_ack_pending = 1;
     aresplot_user_critical_exit();
 }
@@ -344,7 +348,7 @@ static void handle_cmd_start_monitor(void) {
         }
     }
     aresplot_user_critical_exit();
-    queue_ack_response(ARESPLOT_CMD_START_MONITOR, status);
+    queue_ack_response(ARESPLOT_CMD_START_MONITOR, status, ARESPLOT_MAX_VARS_TO_MONITOR);
 }
 
 /**
@@ -353,7 +357,7 @@ static void handle_cmd_start_monitor(void) {
  */
 static void handle_cmd_set_variable(void) {
     if (g_rx_payload_len != 9) {
-        queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_ERROR_INVALID_PAYLOAD);
+        queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_ERROR_INVALID_PAYLOAD, 0);
         return;
     }
 
@@ -389,11 +393,11 @@ static void handle_cmd_set_variable(void) {
         case ARES_TYPE_BOOL:    *(volatile uint8_t*)addr = (float_val != 0.0f) ? 1 : 0; break;
         default:
             aresplot_user_critical_exit();
-            queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_ERROR_TYPE_UNSUPPORTED);
+            queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_ERROR_TYPE_UNSUPPORTED, 0);
             return;
     }
     aresplot_user_critical_exit();
-    queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_OK);
+    queue_ack_response(ARESPLOT_CMD_SET_VARIABLE, ARES_STATUS_OK, 0);
 }
 
 /**
@@ -402,7 +406,7 @@ static void handle_cmd_set_variable(void) {
  */
 static void handle_cmd_set_sample_rate(void) {
     if (g_rx_payload_len != 4) {
-        queue_ack_response(ARESPLOT_CMD_SET_SAMPLE_RATE, ARES_STATUS_ERROR_INVALID_PAYLOAD);
+        queue_ack_response(ARESPLOT_CMD_SET_SAMPLE_RATE, ARES_STATUS_ERROR_INVALID_PAYLOAD, 0);
         return;
     }
 
@@ -425,7 +429,7 @@ static void handle_cmd_set_sample_rate(void) {
     g_last_sample_time_ms = aresplot_user_get_tick_ms(); 
     aresplot_user_critical_exit();
 
-    queue_ack_response(ARESPLOT_CMD_SET_SAMPLE_RATE, ARES_STATUS_OK);
+    queue_ack_response(ARESPLOT_CMD_SET_SAMPLE_RATE, ARES_STATUS_OK, 0);
 }
 
 
@@ -445,7 +449,7 @@ static void process_received_frame(void) {
             handle_cmd_set_sample_rate();
             break;
         default:
-            queue_ack_response(g_rx_cmd, ARES_STATUS_ERROR_UNKNOWN_CMD);
+            queue_ack_response(g_rx_cmd, ARES_STATUS_ERROR_UNKNOWN_CMD, 0);
             break;
     }
 }
@@ -510,7 +514,7 @@ void aresplot_rx_feed_byte(uint8_t byte) {
             if (byte == g_rx_checksum_calculated) { 
                 g_rx_state = ARES_RX_STATE_WAIT_EOP;
             } else { 
-                queue_ack_response(g_rx_cmd, ARES_STATUS_ERROR_CHECKSUM); 
+                queue_ack_response(g_rx_cmd, ARES_STATUS_ERROR_CHECKSUM, 0); 
                 g_rx_state = ARES_RX_STATE_WAIT_SOP; 
             }
             break;
@@ -593,6 +597,7 @@ void aresplot_service_tick(void) {
     uint32_t current_time_ms;
     uint8_t ack_cmd_to_process = 0;
     aresplot_ack_status_t status_to_process = ARES_STATUS_OK;
+    uint8_t max_monitor_vars_to_process = 0;
     uint8_t process_ack = 0;
 
 #if ARESPLOT_ENABLE_ERROR_REPORT
@@ -608,16 +613,22 @@ void aresplot_service_tick(void) {
     if (g_ack_pending) {
         ack_cmd_to_process = g_ack_cmd_to_ack;
         status_to_process = g_ack_status_to_send;
+        max_monitor_vars_to_process = g_ack_max_monitor_vars;
         process_ack = 1;
         g_ack_pending = 0; // 清除挂起标志 Clear pending flag
     }
     aresplot_user_critical_exit();
 
     if (process_ack) {
-        uint8_t ack_payload[2];
+        uint8_t ack_payload[3];
+        uint8_t ack_payload_len = 2;
         ack_payload[0] = ack_cmd_to_process;
         ack_payload[1] = (uint8_t)status_to_process;
-        assemble_and_send_frame_internal(ARESPLOT_CMD_ACK, ack_payload, 2);
+        if (max_monitor_vars_to_process > 0) {
+            ack_payload[2] = max_monitor_vars_to_process;
+            ack_payload_len = 3;
+        }
+        assemble_and_send_frame_internal(ARESPLOT_CMD_ACK, ack_payload, ack_payload_len);
     }
 
 

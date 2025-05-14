@@ -293,6 +293,9 @@ async function startReadingSerialFromStream(stream) {
                             if (aresplotSegment.status !== ARESPLOT_ACK_STATUS.OK) {
                                 self.postMessage({ type: 'warn', payload: { source: 'aresplot_ack_error', commandId: aresplotSegment.ackCmdId, statusCode: aresplotSegment.status, message: `MCU NACK for CMD 0x${aresplotSegment.ackCmdId.toString(16)} - Status 0x${aresplotSegment.status.toString(16)}` }});
                             }
+                            if (aresplotSegment.maxMonitorVars !== null) {
+                                self.postMessage({ type: 'aresplot_ack', payload: { commandId: aresplotSegment.ackCmdId, status: aresplotSegment.status, maxMonitorVars: aresplotSegment.maxMonitorVars }});
+                            }
                         } else if (aresplotSegment.type === 'error_report') { // Assuming ERROR_REPORT exists in CMD_ID
                             self.postMessage({ type: 'warn', payload: { source: 'aresplot_mcu_error', errorCode: aresplotSegment.errorCode, messageBytes: aresplotSegment.messageBytes, rawFrame: aresplotSegment.rawFrame }});
                         } else if (aresplotSegment.type === 'unidentified') {
