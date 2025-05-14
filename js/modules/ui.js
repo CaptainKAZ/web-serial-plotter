@@ -521,6 +521,7 @@ export function renderSymbolSlots() {
  */
 function removeSymbolFromSlotInternal(indexToRemove) {
   if (indexToRemove >= 0 && indexToRemove < selectedSymbolsInSlots.length) {
+    const removedSymbol = selectedSymbolsInSlots.splice(indexToRemove, 1)[0];
     renderSymbolSlots();
     emitSlotsUpdatedEvent();
     // console.log(`UI: Symbol "${removedSymbol.name}" removed from slot ${indexToRemove}.`);
