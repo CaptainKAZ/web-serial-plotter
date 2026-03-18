@@ -201,6 +201,7 @@ function setupAppEventListeners() {
   eventBus.on("worker:info", handleWorkerInfo); // Aresplot specific info (e.g. timestamp init)
   eventBus.on("worker:warn", handleWorkerWarn); // Aresplot warnings (ACK NACK, drift, parser issues)
   eventBus.on("worker:error", handleWorkerError); // Critical worker errors
+  eventBus.on("worker:aresplotAck", handleAresplotAck); // Aresplot ACK with maxMonitorVars
   eventBus.on("ui:elfFileSelected", handleElfFileSelected);
   eventBus.on("ui:symbolSearchChanged", handleSymbolSearchChanged); // Listener for input/suggestions
   eventBus.on("ui:symbolInputValidated", handleSymbolInputValidation); // <<< NEW listener for validation
@@ -418,6 +419,9 @@ function handleSerialConnected(event) {
 function handleSerialDisconnected(event) {
   const detail = event.detail;
   appState.isSerialConnected = false;
+  if (appState.isSerialConnected === false && appState.config.serialProtocol === "aresplot") {
+    uiManager.resetMaxSlots();
+  }
   if (appState.isCollecting && appState.config.dataSource === "webserial")
     stopCore();
   uiManager.updateStatus(
@@ -428,6 +432,9 @@ function handleSerialDisconnected(event) {
 function handleSerialError(event) {
   const error = event.detail;
   appState.isSerialConnected = false;
+  if (appState.config.serialProtocol === "aresplot") {
+    uiManager.resetMaxSlots();
+  }
   if (appState.isCollecting && appState.config.dataSource === "webserial")
     stopCore();
   uiManager.updateStatus(`错误: ${error.message}`);
@@ -542,6 +549,13 @@ function handleWorkerError(event) {
     true
   );
   uiManager.updateButtonStates(getButtonState());
+}
+
+function handleAresplotAck(event) {
+  const payload = event.detail;
+  if (payload && typeof payload.maxMonitorVars === 'number' && payload.maxMonitorVars > 0) {
+    uiManager.setMaxSlots(payload.maxMonitorVars);
+  }
 }
 
 /**

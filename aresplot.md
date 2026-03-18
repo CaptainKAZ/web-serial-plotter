@@ -224,31 +224,39 @@ packet-beta
 #### 5.3.2. `CMD_ACK (0x82)`: 命令确认/应答
 
 * **用途:** MCU 回复上位机发来的命令，告知执行状态。
-* **帧结构 (总计 7 字节 / 56 比特):**
+* **帧结构 (基础 7 字节，扩展 8 字节):**
     ```mermaid
     ---
-    title: CMD_ACK (0x82) Frame
+    title: CMD_ACK (0x82) Frame (Extended with MaxMonitorVars)
     ---
     packet-beta
         0-7: "SOP (0xA5)"
         8-15: "CMD (0x82)"
-        16-31: "LEN (0x0002)"
+        16-31: "LEN (0x0002 or 0x0003)"
         32-39: "AckCmdID"
         40-47: "Status"
-        48-55: "CHECKSUM"
-        56-63: "EOP (0x5A)"
+        48-55: "MaxMonitorVars (可选)"
+        56-63: "CHECKSUM"
+        64-71: "EOP (0x5A)"
     ```
 * **字段说明:**
     | 字段名         | 偏移 (字节) | 大小 (字节) | 数据类型 | 描述                                                                 |
     |----------------|-------------|-------------|----------|----------------------------------------------------------------------|
     | SOP            | 0           | 1           | uint8_t  | 帧起始符 (`0xA5`)                                                      |
     | CMD            | 1           | 1           | uint8_t  | 命令 ID (`0x82`)                                                       |
-    | LEN            | 2           | 2           | uint16_t | Payload 长度 (固定为 2, 小端序: `0x0200`)                               |
+    | LEN            | 2           | 2           | uint16_t | Payload 长度 (2 或 3, 小端序)                               |
     | **Payload:** |             |             |          | (开始于字节偏移 4)                                                        |
     | AckCmdID       | 4           | 1           | uint8_t  | 被确认的来自 PC 的命令 ID (`0x01`, `0x02`, `0x03`)                      |
     | Status         | 5           | 1           | uint8_t  | 执行状态 (见下表)                                                       |
-    | CHECKSUM       | 6           | 1           | uint8_t  | 校验和                                                               |
-    | EOP            | 7           | 1           | uint8_t  | 帧结束符 (`0x5A`)                                                      |
+    | MaxMonitorVars | 6           | 1           | uint8_t  | (可选) MCU 支持的最大监控变量数量。仅当 LEN=3 时存在。PC 端应根据 payload 长度判断是否包含此字段。 |
+    | CHECKSUM       | 6 或 7      | 1           | uint8_t  | 校验和                                                               |
+    | EOP            | 7 或 8      | 1           | uint8_t  | 帧结束符 (`0x5A`)                                                      |
+
+* **向前兼容性说明:**
+    - 旧版 MCU: 发送 2 字节 payload (LEN=2)，不包含 MaxMonitorVars 字段
+    - 新版 MCU: 发送 3 字节 payload (LEN=3)，包含 MaxMonitorVars 字段
+    - PC 端应根据 LEN 字段判断 payload 长度，动态解析 MaxMonitorVars
+    - 如果未收到 MaxMonitorVars，PC 端应使用默认值 (如 10)
 
 * **Status 字段值:**
     | 值   | 名称                             | 描述                                                     |

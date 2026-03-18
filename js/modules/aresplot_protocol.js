@@ -248,7 +248,8 @@ export class AresplotFrameParser {
                 }
                 const ackCmdId = payloadView.getUint8(0);
                 const status = payloadView.getUint8(1);
-                return { type: 'ack', ackCmdId, status, rawFrame: frameBytes, consumedBytes: expectedFrameSize };
+                const maxMonitorVars = payload.length >= 3 ? payloadView.getUint8(2) : null;
+                return { type: 'ack', ackCmdId, status, maxMonitorVars, rawFrame: frameBytes, consumedBytes: expectedFrameSize };
             case CMD_ID.ERROR_REPORT: // Assuming structure: ErrorCode (1 byte) + Optional_Message (M bytes)
                  if (payload.length < 1) {
                     return { type: 'unidentified', rawData: frameBytes, consumedBytes: expectedFrameSize, warning: "Invalid ERROR_REPORT payload size." };
